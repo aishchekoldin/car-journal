@@ -21,7 +21,14 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function getBadgeStyle(eventType: string) {
+  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Planned" };
+  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Refueling" };
+  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Unplanned" };
+}
+
 function RecordCard({ record }: { record: MaintenanceRecord }) {
+  const badge = getBadgeStyle(record.eventType);
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
@@ -29,25 +36,8 @@ function RecordCard({ record }: { record: MaintenanceRecord }) {
     >
       <View style={styles.cardTop}>
         <Text style={styles.cardDate}>{formatDate(record.date)}</Text>
-        <View
-          style={[
-            styles.badge,
-            {
-              backgroundColor:
-                record.eventType === "planned" ? Colors.light.plannedBg : Colors.light.unplannedBg,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.badgeText,
-              {
-                color: record.eventType === "planned" ? Colors.light.planned : Colors.light.unplanned,
-              },
-            ]}
-          >
-            {record.eventType === "planned" ? "Planned" : "Unplanned"}
-          </Text>
+        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
         </View>
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>
@@ -66,11 +56,13 @@ function RecordCard({ record }: { record: MaintenanceRecord }) {
   );
 }
 
+type FilterType = "all" | EventType;
+
 export default function JournalScreen() {
   const insets = useSafeAreaInsets();
-  const { records, car } = useData();
+  const { records } = useData();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | EventType>("all");
+  const [filter, setFilter] = useState<FilterType>("all");
 
   const filtered = useMemo(() => {
     let list = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -92,6 +84,13 @@ export default function JournalScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/add-record");
   };
+
+  const filterOptions: { key: FilterType; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "planned", label: "Planned" },
+    { key: "unplanned", label: "Unplanned" },
+    { key: "refueling", label: "Refueling" },
+  ];
 
   return (
     <View style={[styles.container, { paddingTop: Platform.OS === "web" ? 67 : insets.top }]}>
@@ -119,14 +118,14 @@ export default function JournalScreen() {
       </View>
 
       <View style={styles.filterRow}>
-        {(["all", "planned", "unplanned"] as const).map((f) => (
+        {filterOptions.map((f) => (
           <Pressable
-            key={f}
-            style={[styles.filterChip, filter === f && styles.filterChipActive]}
-            onPress={() => setFilter(f)}
+            key={f.key}
+            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+            onPress={() => setFilter(f.key)}
           >
-            <Text style={[styles.filterChipText, filter === f && styles.filterChipTextActive]}>
-              {f === "all" ? "All" : f === "planned" ? "Planned" : "Unplanned"}
+            <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>
+              {f.label}
             </Text>
           </Pressable>
         ))}
@@ -201,8 +200,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: Colors.light.surface,
     borderWidth: 1,
@@ -214,12 +213,10 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontFamily: "Inter_500Medium",
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.light.textSecondary,
   },
-  filterChipTextActive: {
-    color: "#fff",
-  },
+  filterChipTextActive: { color: "#fff" },
   card: {
     backgroundColor: Colors.light.surface,
     borderRadius: 16,

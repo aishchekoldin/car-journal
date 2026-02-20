@@ -42,23 +42,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     reload();
   }, [reload]);
 
-  const addRecord = useCallback(
-    async (record: MaintenanceRecord) => {
-      const updated = [record, ...records];
-      setRecords(updated);
-      await saveRecords(updated);
-    },
-    [records]
-  );
+  const addRecord = useCallback(async (record: MaintenanceRecord) => {
+    setRecords((prev) => {
+      const updated = [record, ...prev];
+      saveRecords(updated);
+      return updated;
+    });
+  }, []);
 
-  const deleteRecord = useCallback(
-    async (id: string) => {
-      const updated = records.filter((r) => r.id !== id);
-      setRecords(updated);
-      await saveRecords(updated);
-    },
-    [records]
-  );
+  const deleteRecord = useCallback(async (id: string) => {
+    setRecords((prev) => {
+      const updated = prev.filter((r) => r.id !== id);
+      saveRecords(updated);
+      return updated;
+    });
+  }, []);
 
   const updateCar = useCallback(async (c: CarProfile) => {
     setCar(c);

@@ -16,7 +16,11 @@ function formatCost(value: number, currency: string): string {
   return `${value.toLocaleString("ru-RU")} ${currency}`;
 }
 
-function BarChart({ data, currency }: { data: { month: string; total: number }[]; currency: string }) {
+function getRefuelingTotal(records: { eventType: string; totalCost: number }[]): number {
+  return records.filter((r) => r.eventType === "refueling").reduce((s, r) => s + r.totalCost, 0);
+}
+
+function BarChart({ data }: { data: { month: string; total: number }[] }) {
   const maxVal = Math.max(...data.map((d) => d.total), 1);
 
   return (
@@ -56,9 +60,11 @@ export default function StatsScreen() {
   const avgYear = getAvgPerYear(records);
   const plannedTotal = getPlannedTotal(records);
   const unplannedTotal = getUnplannedTotal(records);
-  const grandTotal = plannedTotal + unplannedTotal;
+  const refuelingTotal = getRefuelingTotal(records);
+  const grandTotal = plannedTotal + unplannedTotal + refuelingTotal;
   const plannedPct = grandTotal > 0 ? Math.round((plannedTotal / grandTotal) * 100) : 0;
-  const unplannedPct = grandTotal > 0 ? 100 - plannedPct : 0;
+  const unplannedPct = grandTotal > 0 ? Math.round((unplannedTotal / grandTotal) * 100) : 0;
+  const refuelingPct = grandTotal > 0 ? 100 - plannedPct - unplannedPct : 0;
 
   const hasData = records.length > 0;
 
@@ -85,7 +91,7 @@ export default function StatsScreen() {
         <>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Spending (last 6 months)</Text>
-            <BarChart data={monthlyData} currency={car.currency} />
+            <BarChart data={monthlyData} />
           </View>
 
           <View style={styles.kpiRow}>
@@ -106,37 +112,16 @@ export default function StatsScreen() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Planned vs Unplanned</Text>
+            <Text style={styles.cardTitle}>By Category</Text>
             <View style={styles.splitBar}>
               {plannedPct > 0 && (
-                <View
-                  style={[
-                    styles.splitSegment,
-                    {
-                      flex: plannedPct,
-                      backgroundColor: Colors.light.tint,
-                      borderTopLeftRadius: 6,
-                      borderBottomLeftRadius: 6,
-                      borderTopRightRadius: unplannedPct === 0 ? 6 : 0,
-                      borderBottomRightRadius: unplannedPct === 0 ? 6 : 0,
-                    },
-                  ]}
-                />
+                <View style={[styles.splitSegment, { flex: plannedPct, backgroundColor: Colors.light.tint, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 }]} />
               )}
               {unplannedPct > 0 && (
-                <View
-                  style={[
-                    styles.splitSegment,
-                    {
-                      flex: unplannedPct,
-                      backgroundColor: Colors.light.accent,
-                      borderTopRightRadius: 6,
-                      borderBottomRightRadius: 6,
-                      borderTopLeftRadius: plannedPct === 0 ? 6 : 0,
-                      borderBottomLeftRadius: plannedPct === 0 ? 6 : 0,
-                    },
-                  ]}
-                />
+                <View style={[styles.splitSegment, { flex: unplannedPct, backgroundColor: Colors.light.accent }]} />
+              )}
+              {refuelingPct > 0 && (
+                <View style={[styles.splitSegment, { flex: refuelingPct, backgroundColor: Colors.light.refueling, borderTopRightRadius: 6, borderBottomRightRadius: 6 }]} />
               )}
             </View>
             <View style={styles.splitLegend}>
@@ -149,6 +134,11 @@ export default function StatsScreen() {
                 <View style={[styles.legendDot, { backgroundColor: Colors.light.accent }]} />
                 <Text style={styles.legendLabel}>Unplanned {unplannedPct}%</Text>
                 <Text style={styles.legendValue}>{formatCost(unplannedTotal, car.currency)}</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: Colors.light.refueling }]} />
+                <Text style={styles.legendLabel}>Refueling {refuelingPct}%</Text>
+                <Text style={styles.legendValue}>{formatCost(refuelingTotal, car.currency)}</Text>
               </View>
             </View>
           </View>

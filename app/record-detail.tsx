@@ -20,6 +20,12 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function getBadgeStyle(eventType: string) {
+  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Planned" };
+  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Refueling" };
+  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Unplanned" };
+}
+
 export default function RecordDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -43,6 +49,8 @@ export default function RecordDetailScreen() {
       </View>
     );
   }
+
+  const badge = getBadgeStyle(record.eventType);
 
   const handleDelete = () => {
     Alert.alert("Delete Record", "Are you sure you want to delete this record?", [
@@ -80,25 +88,8 @@ export default function RecordDetailScreen() {
       >
         <View style={styles.topCard}>
           <View style={styles.badgeRow}>
-            <View
-              style={[
-                styles.badge,
-                {
-                  backgroundColor:
-                    record.eventType === "planned" ? Colors.light.plannedBg : Colors.light.unplannedBg,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  {
-                    color: record.eventType === "planned" ? Colors.light.planned : Colors.light.unplanned,
-                  },
-                ]}
-              >
-                {record.eventType === "planned" ? "Planned" : "Unplanned"}
-              </Text>
+            <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
             </View>
           </View>
 

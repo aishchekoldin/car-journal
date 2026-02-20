@@ -15,6 +15,7 @@ import { Image } from "expo-image";
 import Colors from "@/constants/colors";
 import { useData } from "@/lib/DataContext";
 import { getAvgPerMonth, getAvgPerYear } from "@/lib/stats";
+import { calcNextService, getServiceInterval } from "@/lib/service-intervals";
 
 function formatCost(value: number, currency: string): string {
   return `${value.toLocaleString("ru-RU")} ${currency}`;
@@ -23,6 +24,17 @@ function formatCost(value: number, currency: string): string {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatDateLong(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function getBadgeStyle(eventType: string) {
+  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Planned" };
+  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Refueling" };
+  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Unplanned" };
 }
 
 export default function DashboardScreen() {
@@ -34,6 +46,8 @@ export default function DashboardScreen() {
   const lastMileage = lastRecord ? lastRecord.mileageKm : null;
   const avgMonth = getAvgPerMonth(records);
   const avgYear = getAvgPerYear(records);
+  const nextService = calcNextService(records, car);
+  const { intervalKm } = getServiceInterval(car.make);
 
   if (isLoading) {
     return (
@@ -95,6 +109,56 @@ export default function DashboardScreen() {
         ) : null}
       </View>
 
+      <Text style={styles.sectionTitle}>Next Service</Text>
+      {nextService ? (
+        <View style={[styles.serviceCard, nextService.overdue && styles.serviceCardOverdue]}>
+          <View style={styles.serviceRow}>
+            <View style={[styles.serviceIconWrap, nextService.overdue && styles.serviceIconOverdue]}>
+              <Ionicons
+                name={nextService.overdue ? "warning-outline" : "build-outline"}
+                size={22}
+                color={nextService.overdue ? Colors.light.danger : Colors.light.tint}
+              />
+            </View>
+            <View style={styles.serviceInfo}>
+              <Text style={[styles.serviceLabel, nextService.overdue && { color: Colors.light.danger }]}>
+                {nextService.overdue ? "Service Overdue!" : "Upcoming Service"}
+              </Text>
+              <Text style={styles.serviceDate}>
+                {formatDateLong(nextService.byDate)}
+                {nextService.daysLeft !== null && !nextService.overdue
+                  ? ` (${nextService.daysLeft} days left)`
+                  : ""}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.serviceMeta}>
+            <View style={styles.serviceMetaItem}>
+              <Text style={styles.serviceMetaLabel}>At mileage</Text>
+              <Text style={styles.serviceMetaValue}>{nextService.byMileageKm.toLocaleString("ru-RU")} km</Text>
+            </View>
+            {nextService.kmLeft !== null && (
+              <View style={styles.serviceMetaItem}>
+                <Text style={styles.serviceMetaLabel}>Remaining</Text>
+                <Text style={[styles.serviceMetaValue, nextService.kmLeft < 0 && { color: Colors.light.danger }]}>
+                  {nextService.kmLeft > 0 ? `${nextService.kmLeft.toLocaleString("ru-RU")} km` : "Overdue"}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.serviceNote}>
+            Interval: every {intervalKm.toLocaleString("ru-RU")} km ({car.make})
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.emptyServiceCard}>
+          <Ionicons name="build-outline" size={28} color={Colors.light.tabIconDefault} />
+          <Text style={styles.emptyServiceText}>
+            Add a planned service record to see the next service date
+          </Text>
+        </View>
+      )}
+
       <Text style={styles.sectionTitle}>Last Expense</Text>
       {lastRecord ? (
         <Pressable
@@ -103,25 +167,9 @@ export default function DashboardScreen() {
         >
           <View style={styles.lastExpenseTop}>
             <Text style={styles.lastExpenseDate}>{formatDate(lastRecord.date)}</Text>
-            <View
-              style={[
-                styles.badge,
-                {
-                  backgroundColor:
-                    lastRecord.eventType === "planned" ? Colors.light.plannedBg : Colors.light.unplannedBg,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  {
-                    color:
-                      lastRecord.eventType === "planned" ? Colors.light.planned : Colors.light.unplanned,
-                  },
-                ]}
-              >
-                {lastRecord.eventType === "planned" ? "Planned" : "Unplanned"}
+            <View style={[styles.badge, { backgroundColor: getBadgeStyle(lastRecord.eventType).bg }]}>
+              <Text style={[styles.badgeText, { color: getBadgeStyle(lastRecord.eventType).text }]}>
+                {getBadgeStyle(lastRecord.eventType).label}
               </Text>
             </View>
           </View>
@@ -193,9 +241,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  heroOverlay: {
-    padding: 16,
-  },
+  heroOverlay: { padding: 16 },
   carName: { fontFamily: "Inter_700Bold", fontSize: 22, color: Colors.light.text },
   carYear: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.light.textSecondary, marginTop: 2 },
   infoCard: {
@@ -228,6 +274,56 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     marginBottom: 12,
   },
+  serviceCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: Colors.light.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.tint,
+  },
+  serviceCardOverdue: {
+    borderLeftColor: Colors.light.danger,
+    backgroundColor: "#FFF5F5",
+  },
+  serviceRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  serviceIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.light.tintLight,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  serviceIconOverdue: { backgroundColor: Colors.light.dangerLight },
+  serviceInfo: { flex: 1 },
+  serviceLabel: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.light.tint },
+  serviceDate: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary, marginTop: 2 },
+  serviceMeta: { flexDirection: "row", gap: 16, marginBottom: 8 },
+  serviceMetaItem: {},
+  serviceMetaLabel: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.textSecondary },
+  serviceMetaValue: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.text, marginTop: 2 },
+  serviceNote: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.tabIconDefault, fontStyle: "italic" as const },
+  emptyServiceCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+    alignItems: "center",
+    gap: 8,
+    shadowColor: Colors.light.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  emptyServiceText: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary, textAlign: "center" as const },
   lastExpenseCard: {
     backgroundColor: Colors.light.surface,
     borderRadius: 16,

@@ -4,7 +4,7 @@ export interface RecordItem {
   cost: number;
 }
 
-export type EventType = "planned" | "unplanned";
+export type EventType = "planned" | "unplanned" | "refueling";
 
 export interface MaintenanceRecord {
   id: string;
@@ -29,6 +29,13 @@ export interface CarProfile {
 export interface UserProfile {
   name: string;
   email: string;
+}
+
+export interface ServiceInterval {
+  make: string;
+  models: string[];
+  intervalKm: number;
+  intervalMonths: number;
 }
 
 export function generateId(): string {

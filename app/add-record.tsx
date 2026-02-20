@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  Alert,
   Platform,
   KeyboardAvoidingView,
 } from "react-native";
@@ -18,6 +17,12 @@ import Colors from "@/constants/colors";
 import { useData } from "@/lib/DataContext";
 import { generateId } from "@/lib/types";
 import type { RecordItem, EventType } from "@/lib/types";
+
+const EVENT_LABELS: Record<EventType, string> = {
+  planned: "Planned",
+  unplanned: "Unplanned",
+  refueling: "Refueling",
+};
 
 export default function AddRecordScreen() {
   const insets = useSafeAreaInsets();
@@ -32,18 +37,32 @@ export default function AddRecordScreen() {
   const [newItemCost, setNewItemCost] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const totalCost = useMemo(() => items.reduce((s, i) => s + i.cost, 0), [items]);
+  const totalCost = items.reduce((s, i) => s + i.cost, 0);
+
+  const clearError = (key: string) => {
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const handleAddItem = () => {
     const errs: Record<string, string> = {};
-    if (!newItemName.trim()) errs.itemName = "Required";
-    const costNum = parseFloat(newItemCost);
-    if (isNaN(costNum) || costNum < 0) errs.itemCost = "Must be >= 0";
+    if (!newItemName.trim()) errs.itemName = "Enter item name";
+    const costVal = newItemCost.trim();
+    const costNum = costVal === "" ? NaN : parseFloat(costVal);
+    if (costVal === "" || isNaN(costNum) || costNum < 0) errs.itemCost = "Enter cost (>= 0)";
+
     if (Object.keys(errs).length > 0) {
       setErrors((prev) => ({ ...prev, ...errs }));
       return;
     }
-    setItems([...items, { itemId: generateId(), name: newItemName.trim(), cost: costNum }]);
+
+    setItems((prev) => [
+      ...prev,
+      { itemId: generateId(), name: newItemName.trim(), cost: costNum },
+    ]);
     setNewItemName("");
     setNewItemCost("");
     setErrors((prev) => {
@@ -57,7 +76,7 @@ export default function AddRecordScreen() {
   };
 
   const handleRemoveItem = (id: string) => {
-    setItems(items.filter((i) => i.itemId !== id));
+    setItems((prev) => prev.filter((i) => i.itemId !== id));
   };
 
   const handleSave = async () => {
@@ -74,14 +93,16 @@ export default function AddRecordScreen() {
       return;
     }
 
+    const computedTotal = items.reduce((s, i) => s + i.cost, 0);
+
     await addRecord({
       id: generateId(),
       date,
       mileageKm: mileageNum,
       eventType,
       title: title.trim(),
-      items,
-      totalCost,
+      items: [...items],
+      totalCost: computedTotal,
       currency: car.currency,
     });
 
@@ -107,7 +128,10 @@ export default function AddRecordScreen() {
         </View>
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: Platform.OS === "web" ? 34 + 20 : insets.bottom + 20 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: Platform.OS === "web" ? 34 + 40 : insets.bottom + 40,
+          }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -115,7 +139,7 @@ export default function AddRecordScreen() {
           <TextInput
             style={[styles.input, errors.date && styles.inputError]}
             value={date}
-            onChangeText={(t) => { setDate(t); setErrors((p) => { const n = { ...p }; delete n.date; return n; }); }}
+            onChangeText={(t) => { setDate(t); clearError("date"); }}
             placeholder="YYYY-MM-DD"
             placeholderTextColor={Colors.light.tabIconDefault}
           />
@@ -125,7 +149,7 @@ export default function AddRecordScreen() {
           <TextInput
             style={[styles.input, errors.mileage && styles.inputError]}
             value={mileage}
-            onChangeText={(t) => { setMileage(t.replace(/[^0-9]/g, "")); setErrors((p) => { const n = { ...p }; delete n.mileage; return n; }); }}
+            onChangeText={(t) => { setMileage(t.replace(/[^0-9]/g, "")); clearError("mileage"); }}
             placeholder="e.g. 120000"
             placeholderTextColor={Colors.light.tabIconDefault}
             keyboardType="numeric"
@@ -134,14 +158,14 @@ export default function AddRecordScreen() {
 
           <Text style={styles.label}>Event Type</Text>
           <View style={styles.typeRow}>
-            {(["planned", "unplanned"] as EventType[]).map((t) => (
+            {(["planned", "unplanned", "refueling"] as EventType[]).map((t) => (
               <Pressable
                 key={t}
                 style={[styles.typeChip, eventType === t && styles.typeChipActive]}
                 onPress={() => setEventType(t)}
               >
                 <Text style={[styles.typeChipText, eventType === t && styles.typeChipTextActive]}>
-                  {t === "planned" ? "Planned" : "Unplanned"}
+                  {EVENT_LABELS[t]}
                 </Text>
               </Pressable>
             ))}
@@ -151,48 +175,56 @@ export default function AddRecordScreen() {
           <TextInput
             style={[styles.input, errors.title && styles.inputError]}
             value={title}
-            onChangeText={(t) => { setTitle(t); setErrors((p) => { const n = { ...p }; delete n.title; return n; }); }}
-            placeholder="e.g. TO 120 000"
+            onChangeText={(t) => { setTitle(t); clearError("title"); }}
+            placeholder={eventType === "refueling" ? "e.g. AI-95 50L" : "e.g. TO 120 000"}
             placeholderTextColor={Colors.light.tabIconDefault}
           />
           {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
 
-          <View style={styles.itemsHeader}>
-            <Text style={styles.label}>Items</Text>
-            {errors.items ? <Text style={styles.errorText}>{errors.items}</Text> : null}
-          </View>
-
-          {items.map((item) => (
-            <View key={item.itemId} style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemCost}>{item.cost.toLocaleString("ru-RU")} {car.currency}</Text>
-              </View>
-              <Pressable onPress={() => handleRemoveItem(item.itemId)} hitSlop={8}>
-                <Ionicons name="close-circle" size={22} color={Colors.light.danger} />
-              </Pressable>
+          <View style={styles.itemsSection}>
+            <View style={styles.itemsHeader}>
+              <Text style={styles.itemsSectionTitle}>Items</Text>
+              {errors.items ? <Text style={styles.errorTextInline}>{errors.items}</Text> : null}
             </View>
-          ))}
 
-          <View style={styles.addItemWrap}>
-            <TextInput
-              style={[styles.addItemInput, { flex: 2 }, errors.itemName && styles.inputError]}
-              value={newItemName}
-              onChangeText={(t) => { setNewItemName(t); setErrors((p) => { const n = { ...p }; delete n.itemName; return n; }); }}
-              placeholder="Item name"
-              placeholderTextColor={Colors.light.tabIconDefault}
-            />
-            <TextInput
-              style={[styles.addItemInput, { flex: 1 }, errors.itemCost && styles.inputError]}
-              value={newItemCost}
-              onChangeText={(t) => { setNewItemCost(t.replace(/[^0-9.]/g, "")); setErrors((p) => { const n = { ...p }; delete n.itemCost; return n; }); }}
-              placeholder="Cost"
-              placeholderTextColor={Colors.light.tabIconDefault}
-              keyboardType="numeric"
-            />
-            <Pressable style={styles.addItemBtn} onPress={handleAddItem}>
-              <Ionicons name="add" size={22} color="#fff" />
-            </Pressable>
+            {items.map((item) => (
+              <View key={item.itemId} style={styles.itemRow}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={styles.itemCost}>{item.cost.toLocaleString("ru-RU")} {car.currency}</Text>
+                </View>
+                <Pressable onPress={() => handleRemoveItem(item.itemId)} hitSlop={8}>
+                  <Ionicons name="close-circle" size={22} color={Colors.light.danger} />
+                </Pressable>
+              </View>
+            ))}
+
+            <View style={styles.addItemCard}>
+              <TextInput
+                style={[styles.addItemInput, errors.itemName && styles.inputError]}
+                value={newItemName}
+                onChangeText={(t) => { setNewItemName(t); clearError("itemName"); }}
+                placeholder="Item name"
+                placeholderTextColor={Colors.light.tabIconDefault}
+              />
+              <View style={styles.addItemBottomRow}>
+                <TextInput
+                  style={[styles.addItemCostInput, errors.itemCost && styles.inputError]}
+                  value={newItemCost}
+                  onChangeText={(t) => { setNewItemCost(t.replace(/[^0-9.]/g, "")); clearError("itemCost"); }}
+                  placeholder="Cost"
+                  placeholderTextColor={Colors.light.tabIconDefault}
+                  keyboardType="numeric"
+                />
+                <Pressable
+                  style={({ pressed }) => [styles.addItemBtn, pressed && { opacity: 0.85 }]}
+                  onPress={handleAddItem}
+                >
+                  <Ionicons name="add" size={20} color="#fff" />
+                  <Text style={styles.addItemBtnText}>Add</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
 
           <View style={styles.totalRow}>
@@ -239,10 +271,11 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: Colors.light.danger },
   errorText: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.danger, marginTop: 4 },
-  typeRow: { flexDirection: "row", gap: 10 },
+  errorTextInline: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.danger },
+  typeRow: { flexDirection: "row", gap: 8 },
   typeChip: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderRadius: 12,
     backgroundColor: Colors.light.surface,
     borderWidth: 1,
@@ -250,9 +283,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   typeChipActive: { backgroundColor: Colors.light.tint, borderColor: Colors.light.tint },
-  typeChipText: { fontFamily: "Inter_500Medium", fontSize: 14, color: Colors.light.textSecondary },
+  typeChipText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.textSecondary },
   typeChipTextActive: { color: "#fff" },
-  itemsHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  itemsSection: { marginTop: 20 },
+  itemsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  itemsSectionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 16, color: Colors.light.text },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -266,10 +301,31 @@ const styles = StyleSheet.create({
   itemInfo: { flex: 1 },
   itemName: { fontFamily: "Inter_500Medium", fontSize: 14, color: Colors.light.text },
   itemCost: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary, marginTop: 2 },
-  addItemWrap: { flexDirection: "row", gap: 8, marginTop: 4 },
-  addItemInput: {
+  addItemCard: {
     backgroundColor: Colors.light.surface,
     borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.tint,
+    borderStyle: "dashed" as const,
+  },
+  addItemInput: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    marginBottom: 8,
+  },
+  addItemBottomRow: { flexDirection: "row", gap: 8 },
+  addItemCostInput: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: "Inter_400Regular",
@@ -279,13 +335,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.border,
   },
   addItemBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     backgroundColor: Colors.light.tint,
     justifyContent: "center",
-    alignItems: "center",
   },
+  addItemBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
