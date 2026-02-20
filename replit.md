@@ -17,7 +17,7 @@ Preferred communication style: Simple, everyday language.
   - Modal/stack screens: `app/add-record.tsx`, `app/edit-car.tsx`, `app/record-detail.tsx`
 - **State Management**: React Context (`lib/DataContext.tsx`) wrapping the entire app, providing CRUD operations for records, car profile, and user profile
 - **Data Persistence**: AsyncStorage (`lib/storage.ts`) — currently the primary data store for all app data (records, car profile, user profile). This is a local-only solution.
-- **Styling**: Custom StyleSheet-based styling with a centralized color system (`constants/colors.ts`). Uses Inter font family via `@expo-google-fonts/inter`.
+- **Styling**: Custom StyleSheet-based styling with a centralized color system (`constants/colors.ts`). Primary color is blue (#2563EB). Uses Inter font family via `@expo-google-fonts/inter`.
 - **Key Libraries**: 
   - `react-native-gesture-handler`, `react-native-reanimated` for gestures/animations
   - `react-native-keyboard-controller` for keyboard handling
