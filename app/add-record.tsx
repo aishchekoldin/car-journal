@@ -19,9 +19,9 @@ import { generateId } from "@/lib/types";
 import type { RecordItem, EventType } from "@/lib/types";
 
 const EVENT_LABELS: Record<EventType, string> = {
-  planned: "Planned",
-  unplanned: "Unplanned",
-  refueling: "Refueling",
+  planned: "Плановое",
+  unplanned: "Внеплановое",
+  refueling: "Заправка",
 };
 
 export default function AddRecordScreen() {
@@ -49,10 +49,10 @@ export default function AddRecordScreen() {
 
   const handleAddItem = () => {
     const errs: Record<string, string> = {};
-    if (!newItemName.trim()) errs.itemName = "Enter item name";
+    if (!newItemName.trim()) errs.itemName = "Введите название";
     const costVal = newItemCost.trim();
     const costNum = costVal === "" ? NaN : parseFloat(costVal);
-    if (costVal === "" || isNaN(costNum) || costNum < 0) errs.itemCost = "Enter cost (>= 0)";
+    if (costVal === "" || isNaN(costNum) || costNum < 0) errs.itemCost = "Введите стоимость (>= 0)";
 
     if (Object.keys(errs).length > 0) {
       setErrors((prev) => ({ ...prev, ...errs }));
@@ -82,10 +82,10 @@ export default function AddRecordScreen() {
   const handleSave = async () => {
     const errs: Record<string, string> = {};
     const mileageNum = parseInt(mileage, 10);
-    if (!mileage || isNaN(mileageNum) || mileageNum <= 0) errs.mileage = "Must be > 0";
-    if (!title.trim()) errs.title = "Required";
-    if (items.length === 0) errs.items = "Add at least one item";
-    if (!date) errs.date = "Required";
+    if (!mileage || isNaN(mileageNum) || mileageNum <= 0) errs.mileage = "Должно быть > 0";
+    if (!title.trim()) errs.title = "Обязательное поле";
+    if (items.length === 0) errs.items = "Добавьте хотя бы одну позицию";
+    if (!date) errs.date = "Обязательное поле";
 
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -121,7 +121,7 @@ export default function AddRecordScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="close" size={26} color={Colors.light.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>New Record</Text>
+          <Text style={styles.headerTitle}>Новая запись</Text>
           <Pressable onPress={handleSave} hitSlop={12}>
             <Ionicons name="checkmark" size={26} color={Colors.light.tint} />
           </Pressable>
@@ -135,28 +135,28 @@ export default function AddRecordScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.label}>Date</Text>
+          <Text style={styles.label}>Дата</Text>
           <TextInput
             style={[styles.input, errors.date && styles.inputError]}
             value={date}
             onChangeText={(t) => { setDate(t); clearError("date"); }}
-            placeholder="YYYY-MM-DD"
+            placeholder="ГГГГ-ММ-ДД"
             placeholderTextColor={Colors.light.tabIconDefault}
           />
           {errors.date ? <Text style={styles.errorText}>{errors.date}</Text> : null}
 
-          <Text style={styles.label}>Mileage (km)</Text>
+          <Text style={styles.label}>Пробег (км)</Text>
           <TextInput
             style={[styles.input, errors.mileage && styles.inputError]}
             value={mileage}
             onChangeText={(t) => { setMileage(t.replace(/[^0-9]/g, "")); clearError("mileage"); }}
-            placeholder="e.g. 120000"
+            placeholder="напр. 120000"
             placeholderTextColor={Colors.light.tabIconDefault}
             keyboardType="numeric"
           />
           {errors.mileage ? <Text style={styles.errorText}>{errors.mileage}</Text> : null}
 
-          <Text style={styles.label}>Event Type</Text>
+          <Text style={styles.label}>Тип события</Text>
           <View style={styles.typeRow}>
             {(["planned", "unplanned", "refueling"] as EventType[]).map((t) => (
               <Pressable
@@ -171,19 +171,19 @@ export default function AddRecordScreen() {
             ))}
           </View>
 
-          <Text style={styles.label}>Title</Text>
+          <Text style={styles.label}>Название</Text>
           <TextInput
             style={[styles.input, errors.title && styles.inputError]}
             value={title}
             onChangeText={(t) => { setTitle(t); clearError("title"); }}
-            placeholder={eventType === "refueling" ? "e.g. AI-95 50L" : "e.g. TO 120 000"}
+            placeholder={eventType === "refueling" ? "напр. АИ-95 50л" : "напр. ТО 120 000"}
             placeholderTextColor={Colors.light.tabIconDefault}
           />
           {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
 
           <View style={styles.itemsSection}>
             <View style={styles.itemsHeader}>
-              <Text style={styles.itemsSectionTitle}>Items</Text>
+              <Text style={styles.itemsSectionTitle}>Позиции</Text>
               {errors.items ? <Text style={styles.errorTextInline}>{errors.items}</Text> : null}
             </View>
 
@@ -204,7 +204,7 @@ export default function AddRecordScreen() {
                 style={[styles.addItemInput, errors.itemName && styles.inputError]}
                 value={newItemName}
                 onChangeText={(t) => { setNewItemName(t); clearError("itemName"); }}
-                placeholder="Item name"
+                placeholder="Название позиции"
                 placeholderTextColor={Colors.light.tabIconDefault}
               />
               <View style={styles.addItemBottomRow}>
@@ -212,7 +212,7 @@ export default function AddRecordScreen() {
                   style={[styles.addItemCostInput, errors.itemCost && styles.inputError]}
                   value={newItemCost}
                   onChangeText={(t) => { setNewItemCost(t.replace(/[^0-9.]/g, "")); clearError("itemCost"); }}
-                  placeholder="Cost"
+                  placeholder="Стоимость"
                   placeholderTextColor={Colors.light.tabIconDefault}
                   keyboardType="numeric"
                 />
@@ -221,14 +221,14 @@ export default function AddRecordScreen() {
                   onPress={handleAddItem}
                 >
                   <Ionicons name="add" size={20} color="#fff" />
-                  <Text style={styles.addItemBtnText}>Add</Text>
+                  <Text style={styles.addItemBtnText}>Добавить</Text>
                 </Pressable>
               </View>
             </View>
           </View>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalLabel}>Итого</Text>
             <Text style={styles.totalValue}>{totalCost.toLocaleString("ru-RU")} {car.currency}</Text>
           </View>
 
@@ -236,7 +236,7 @@ export default function AddRecordScreen() {
             style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.85 }]}
             onPress={handleSave}
           >
-            <Text style={styles.saveButtonText}>Save Record</Text>
+            <Text style={styles.saveButtonText}>Сохранить запись</Text>
           </Pressable>
         </ScrollView>
       </View>

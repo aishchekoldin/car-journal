@@ -79,18 +79,18 @@ export default function StatsScreen() {
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>Statistics</Text>
+      <Text style={styles.title}>Статистика</Text>
 
       {!hasData ? (
         <View style={styles.emptyWrap}>
           <Ionicons name="bar-chart-outline" size={48} color={Colors.light.tabIconDefault} />
-          <Text style={styles.emptyTitle}>No data yet</Text>
-          <Text style={styles.emptySubtitle}>Add records to see your spending stats</Text>
+          <Text style={styles.emptyTitle}>Данных пока нет</Text>
+          <Text style={styles.emptySubtitle}>Добавьте записи, чтобы увидеть статистику расходов</Text>
         </View>
       ) : (
         <>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Spending (last 6 months)</Text>
+            <Text style={styles.cardTitle}>Расходы (последние 6 мес.)</Text>
             <BarChart data={monthlyData} />
           </View>
 
@@ -99,20 +99,20 @@ export default function StatsScreen() {
               <View style={[styles.kpiIcon, { backgroundColor: Colors.light.tintLight }]}>
                 <Ionicons name="calendar-outline" size={20} color={Colors.light.tint} />
               </View>
-              <Text style={styles.kpiLabel}>Avg / month</Text>
+              <Text style={styles.kpiLabel}>Среднее / мес.</Text>
               <Text style={styles.kpiValue}>{formatCost(avgMonth, car.currency)}</Text>
             </View>
             <View style={styles.kpiCard}>
               <View style={[styles.kpiIcon, { backgroundColor: Colors.light.accentLight }]}>
                 <Ionicons name="trending-up-outline" size={20} color={Colors.light.accent} />
               </View>
-              <Text style={styles.kpiLabel}>Avg / year</Text>
+              <Text style={styles.kpiLabel}>Среднее / год</Text>
               <Text style={styles.kpiValue}>{formatCost(avgYear, car.currency)}</Text>
             </View>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>By Category</Text>
+            <Text style={styles.cardTitle}>По категориям</Text>
             <View style={styles.splitBar}>
               {plannedPct > 0 && (
                 <View style={[styles.splitSegment, { flex: plannedPct, backgroundColor: Colors.light.tint, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 }]} />
@@ -127,17 +127,17 @@ export default function StatsScreen() {
             <View style={styles.splitLegend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.light.tint }]} />
-                <Text style={styles.legendLabel}>Planned {plannedPct}%</Text>
+                <Text style={styles.legendLabel}>Плановое {plannedPct}%</Text>
                 <Text style={styles.legendValue}>{formatCost(plannedTotal, car.currency)}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.light.accent }]} />
-                <Text style={styles.legendLabel}>Unplanned {unplannedPct}%</Text>
+                <Text style={styles.legendLabel}>Внеплановое {unplannedPct}%</Text>
                 <Text style={styles.legendValue}>{formatCost(unplannedTotal, car.currency)}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.light.refueling }]} />
-                <Text style={styles.legendLabel}>Refueling {refuelingPct}%</Text>
+                <Text style={styles.legendLabel}>Заправка {refuelingPct}%</Text>
                 <Text style={styles.legendValue}>{formatCost(refuelingTotal, car.currency)}</Text>
               </View>
             </View>

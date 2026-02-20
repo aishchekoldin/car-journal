@@ -32,7 +32,7 @@ export default function ProfileScreen() {
   };
 
   const handleStub = (action: string) => {
-    Alert.alert(action, "This feature will be available in a future update.");
+    Alert.alert(action, "Эта функция будет доступна в будущем обновлении.");
   };
 
   return (
@@ -46,16 +46,16 @@ export default function ProfileScreen() {
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>Profile</Text>
+      <Text style={styles.title}>Профиль</Text>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Your Info</Text>
-        <Text style={styles.label}>Name</Text>
+        <Text style={styles.sectionTitle}>Ваши данные</Text>
+        <Text style={styles.label}>Имя</Text>
         <TextInput
           style={styles.input}
           value={name}
           onChangeText={setName}
-          placeholder="Your name"
+          placeholder="Ваше имя"
           placeholderTextColor={Colors.light.tabIconDefault}
         />
         <Text style={styles.label}>Email</Text>
@@ -75,13 +75,13 @@ export default function ProfileScreen() {
           {saved ? (
             <Ionicons name="checkmark" size={18} color="#fff" />
           ) : (
-            <Text style={styles.saveBtnText}>Save</Text>
+            <Text style={styles.saveBtnText}>Сохранить</Text>
           )}
         </Pressable>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Your Car</Text>
+        <Text style={styles.sectionTitle}>Ваш автомобиль</Text>
         <Pressable
           style={({ pressed }) => [styles.carRow, pressed && { opacity: 0.9 }]}
           onPress={() => router.push("/edit-car")}
@@ -96,35 +96,35 @@ export default function ProfileScreen() {
           <View style={styles.carInfo}>
             <Text style={styles.carName}>{car.make} {car.model}</Text>
             <Text style={styles.carSub}>{car.year}{car.vin ? ` \u00B7 ${car.vin}` : ""}</Text>
-            <Text style={styles.carCurrency}>Currency: {car.currency}</Text>
+            <Text style={styles.carCurrency}>Валюта: {car.currency}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={Colors.light.tabIconDefault} />
         </Pressable>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <Pressable style={styles.actionRow} onPress={() => handleStub("Change Password")}>
+        <Text style={styles.sectionTitle}>Аккаунт</Text>
+        <Pressable style={styles.actionRow} onPress={() => handleStub("Сменить пароль")}>
           <Ionicons name="lock-closed-outline" size={20} color={Colors.light.text} />
-          <Text style={styles.actionText}>Change Password</Text>
+          <Text style={styles.actionText}>Сменить пароль</Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
         </Pressable>
         <View style={styles.divider} />
-        <Pressable style={styles.actionRow} onPress={() => handleStub("Change Email")}>
+        <Pressable style={styles.actionRow} onPress={() => handleStub("Сменить email")}>
           <Ionicons name="mail-outline" size={20} color={Colors.light.text} />
-          <Text style={styles.actionText}>Change Email</Text>
+          <Text style={styles.actionText}>Сменить email</Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
         </Pressable>
         <View style={styles.divider} />
-        <Pressable style={styles.actionRow} onPress={() => handleStub("Log Out")}>
+        <Pressable style={styles.actionRow} onPress={() => handleStub("Выйти")}>
           <Ionicons name="log-out-outline" size={20} color={Colors.light.accent} />
-          <Text style={[styles.actionText, { color: Colors.light.accent }]}>Log Out</Text>
+          <Text style={[styles.actionText, { color: Colors.light.accent }]}>Выйти</Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
         </Pressable>
         <View style={styles.divider} />
-        <Pressable style={styles.actionRow} onPress={() => handleStub("Delete Account")}>
+        <Pressable style={styles.actionRow} onPress={() => handleStub("Удалить аккаунт")}>
           <Ionicons name="trash-outline" size={20} color={Colors.light.danger} />
-          <Text style={[styles.actionText, { color: Colors.light.danger }]}>Delete Account</Text>
+          <Text style={[styles.actionText, { color: Colors.light.danger }]}>Удалить аккаунт</Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
         </Pressable>
       </View>

@@ -13,19 +13,19 @@ function NativeTabLayout() {
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
+        <Label>Главная</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="journal">
         <Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} />
-        <Label>Journal</Label>
+        <Label>Журнал</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="stats">
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
-        <Label>Stats</Label>
+        <Label>Статистика</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
+        <Label>Профиль</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -67,28 +67,28 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Главная",
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="journal"
         options={{
-          title: "Journal",
+          title: "Журнал",
           tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: "Stats",
+          title: "Статистика",
           tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: "Профиль",
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />

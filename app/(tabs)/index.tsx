@@ -32,9 +32,9 @@ function formatDateLong(dateStr: string): string {
 }
 
 function getBadgeStyle(eventType: string) {
-  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Planned" };
-  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Refueling" };
-  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Unplanned" };
+  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Плановое" };
+  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Заправка" };
+  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Внеплановое" };
 }
 
 export default function DashboardScreen() {
@@ -68,7 +68,7 @@ export default function DashboardScreen() {
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.greeting}>Car Journal</Text>
+      <Text style={styles.greeting}>Журнал авто</Text>
 
       <View style={styles.heroCard}>
         {car.photoUri ? (
@@ -90,9 +90,9 @@ export default function DashboardScreen() {
             <Ionicons name="speedometer-outline" size={20} color={Colors.light.tint} />
           </View>
           <View style={styles.infoTextWrap}>
-            <Text style={styles.infoLabel}>Current Mileage</Text>
+            <Text style={styles.infoLabel}>Текущий пробег</Text>
             <Text style={styles.infoValue}>
-              {lastMileage ? `${lastMileage.toLocaleString("ru-RU")} km` : "No data"}
+              {lastMileage ? `${lastMileage.toLocaleString("ru-RU")} км` : "Нет данных"}
             </Text>
           </View>
         </View>
@@ -109,7 +109,7 @@ export default function DashboardScreen() {
         ) : null}
       </View>
 
-      <Text style={styles.sectionTitle}>Next Service</Text>
+      <Text style={styles.sectionTitle}>Следующее ТО</Text>
       {nextService ? (
         <View style={[styles.serviceCard, nextService.overdue && styles.serviceCardOverdue]}>
           <View style={styles.serviceRow}>
@@ -122,44 +122,44 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.serviceInfo}>
               <Text style={[styles.serviceLabel, nextService.overdue && { color: Colors.light.danger }]}>
-                {nextService.overdue ? "Service Overdue!" : "Upcoming Service"}
+                {nextService.overdue ? "ТО просрочено!" : "Предстоящее ТО"}
               </Text>
               <Text style={styles.serviceDate}>
                 {formatDateLong(nextService.byDate)}
                 {nextService.daysLeft !== null && !nextService.overdue
-                  ? ` (${nextService.daysLeft} days left)`
+                  ? ` (${nextService.daysLeft} дн.)`
                   : ""}
               </Text>
             </View>
           </View>
           <View style={styles.serviceMeta}>
             <View style={styles.serviceMetaItem}>
-              <Text style={styles.serviceMetaLabel}>At mileage</Text>
-              <Text style={styles.serviceMetaValue}>{nextService.byMileageKm.toLocaleString("ru-RU")} km</Text>
+              <Text style={styles.serviceMetaLabel}>При пробеге</Text>
+              <Text style={styles.serviceMetaValue}>{nextService.byMileageKm.toLocaleString("ru-RU")} км</Text>
             </View>
             {nextService.kmLeft !== null && (
               <View style={styles.serviceMetaItem}>
-                <Text style={styles.serviceMetaLabel}>Remaining</Text>
+                <Text style={styles.serviceMetaLabel}>Осталось</Text>
                 <Text style={[styles.serviceMetaValue, nextService.kmLeft < 0 && { color: Colors.light.danger }]}>
-                  {nextService.kmLeft > 0 ? `${nextService.kmLeft.toLocaleString("ru-RU")} km` : "Overdue"}
+                  {nextService.kmLeft > 0 ? `${nextService.kmLeft.toLocaleString("ru-RU")} км` : "Просрочено"}
                 </Text>
               </View>
             )}
           </View>
           <Text style={styles.serviceNote}>
-            Interval: every {intervalKm.toLocaleString("ru-RU")} km ({car.make})
+            Интервал: каждые {intervalKm.toLocaleString("ru-RU")} км ({car.make})
           </Text>
         </View>
       ) : (
         <View style={styles.emptyServiceCard}>
           <Ionicons name="build-outline" size={28} color={Colors.light.tabIconDefault} />
           <Text style={styles.emptyServiceText}>
-            Add a planned service record to see the next service date
+            Добавьте запись планового ТО, чтобы увидеть дату следующего обслуживания
           </Text>
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Last Expense</Text>
+      <Text style={styles.sectionTitle}>Последний расход</Text>
       {lastRecord ? (
         <Pressable
           style={({ pressed }) => [styles.lastExpenseCard, pressed && styles.cardPressed]}
@@ -178,34 +178,34 @@ export default function DashboardScreen() {
             {formatCost(lastRecord.totalCost, lastRecord.currency)}
           </Text>
           <View style={styles.openRow}>
-            <Text style={styles.openText}>View details</Text>
+            <Text style={styles.openText}>Подробнее</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.light.tint} />
           </View>
         </Pressable>
       ) : (
         <View style={styles.emptyCard}>
           <Ionicons name="receipt-outline" size={36} color={Colors.light.tabIconDefault} />
-          <Text style={styles.emptyText}>No expenses yet</Text>
+          <Text style={styles.emptyText}>Расходов пока нет</Text>
           <Pressable style={styles.addBtn} onPress={() => router.push("/add-record")}>
-            <Text style={styles.addBtnText}>Add first record</Text>
+            <Text style={styles.addBtnText}>Добавить запись</Text>
           </Pressable>
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Overview</Text>
+      <Text style={styles.sectionTitle}>Обзор</Text>
       <View style={styles.kpiRow}>
         <View style={styles.kpiCard}>
           <Ionicons name="calendar-outline" size={22} color={Colors.light.tint} />
-          <Text style={styles.kpiLabel}>Avg / month</Text>
+          <Text style={styles.kpiLabel}>Среднее / мес.</Text>
           <Text style={styles.kpiValue}>
-            {records.length > 0 ? formatCost(avgMonth, car.currency) : "No data"}
+            {records.length > 0 ? formatCost(avgMonth, car.currency) : "Нет данных"}
           </Text>
         </View>
         <View style={styles.kpiCard}>
           <Ionicons name="trending-up-outline" size={22} color={Colors.light.accent} />
-          <Text style={styles.kpiLabel}>Avg / year</Text>
+          <Text style={styles.kpiLabel}>Среднее / год</Text>
           <Text style={styles.kpiValue}>
-            {records.length > 0 ? formatCost(avgYear, car.currency) : "No data"}
+            {records.length > 0 ? formatCost(avgYear, car.currency) : "Нет данных"}
           </Text>
         </View>
       </View>

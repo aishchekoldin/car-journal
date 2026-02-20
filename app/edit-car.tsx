@@ -60,7 +60,7 @@ export default function EditCarScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="close" size={26} color={Colors.light.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Edit Car</Text>
+          <Text style={styles.headerTitle}>Редактировать авто</Text>
           <Pressable onPress={handleSave} hitSlop={12}>
             <Ionicons name="checkmark" size={26} color={Colors.light.tint} />
           </Pressable>
@@ -80,35 +80,35 @@ export default function EditCarScreen() {
             ) : (
               <View style={styles.photoPlaceholder}>
                 <Ionicons name="camera-outline" size={36} color={Colors.light.tint} />
-                <Text style={styles.photoText}>Tap to add photo</Text>
+                <Text style={styles.photoText}>Нажмите, чтобы добавить фото</Text>
               </View>
             )}
           </Pressable>
 
-          <Text style={styles.label}>Make</Text>
+          <Text style={styles.label}>Марка</Text>
           <TextInput
             style={styles.input}
             value={make}
             onChangeText={setMake}
-            placeholder="e.g. Skoda"
+            placeholder="напр. Skoda"
             placeholderTextColor={Colors.light.tabIconDefault}
           />
 
-          <Text style={styles.label}>Model</Text>
+          <Text style={styles.label}>Модель</Text>
           <TextInput
             style={styles.input}
             value={model}
             onChangeText={setModel}
-            placeholder="e.g. Yeti"
+            placeholder="напр. Yeti"
             placeholderTextColor={Colors.light.tabIconDefault}
           />
 
-          <Text style={styles.label}>Year</Text>
+          <Text style={styles.label}>Год выпуска</Text>
           <TextInput
             style={styles.input}
             value={year}
             onChangeText={(t) => setYear(t.replace(/[^0-9]/g, ""))}
-            placeholder="e.g. 2015"
+            placeholder="напр. 2015"
             placeholderTextColor={Colors.light.tabIconDefault}
             keyboardType="numeric"
             maxLength={4}
@@ -119,13 +119,13 @@ export default function EditCarScreen() {
             style={styles.input}
             value={vin}
             onChangeText={setVin}
-            placeholder="VIN number"
+            placeholder="VIN номер"
             placeholderTextColor={Colors.light.tabIconDefault}
             autoCapitalize="characters"
             maxLength={17}
           />
 
-          <Text style={styles.label}>Currency</Text>
+          <Text style={styles.label}>Валюта</Text>
           <View style={styles.currencyRow}>
             {CURRENCIES.map((c) => (
               <Pressable
@@ -144,7 +144,7 @@ export default function EditCarScreen() {
             style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.85 }]}
             onPress={handleSave}
           >
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+            <Text style={styles.saveButtonText}>Сохранить изменения</Text>
           </Pressable>
         </ScrollView>
       </View>

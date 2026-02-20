@@ -21,9 +21,9 @@ function formatDate(dateStr: string): string {
 }
 
 function getBadgeStyle(eventType: string) {
-  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Planned" };
-  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Refueling" };
-  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Unplanned" };
+  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Плановое" };
+  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Заправка" };
+  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Внеплановое" };
 }
 
 export default function RecordDetailScreen() {
@@ -40,11 +40,11 @@ export default function RecordDetailScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="arrow-back" size={24} color={Colors.light.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Record</Text>
+          <Text style={styles.headerTitle}>Запись</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyText}>Record not found</Text>
+          <Text style={styles.emptyText}>Запись не найдена</Text>
         </View>
       </View>
     );
@@ -53,10 +53,10 @@ export default function RecordDetailScreen() {
   const badge = getBadgeStyle(record.eventType);
 
   const handleDelete = () => {
-    Alert.alert("Delete Record", "Are you sure you want to delete this record?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("Удалить запись", "Вы уверены, что хотите удалить эту запись?", [
+      { text: "Отмена", style: "cancel" },
       {
-        text: "Delete",
+        text: "Удалить",
         style: "destructive",
         onPress: async () => {
           await deleteRecord(record.id);
@@ -73,7 +73,7 @@ export default function RecordDetailScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={Colors.light.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Details</Text>
+        <Text style={styles.headerTitle}>Подробности</Text>
         <Pressable onPress={handleDelete} hitSlop={12}>
           <Ionicons name="trash-outline" size={22} color={Colors.light.danger} />
         </Pressable>
@@ -99,7 +99,7 @@ export default function RecordDetailScreen() {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Ionicons name="speedometer-outline" size={18} color={Colors.light.tint} />
-              <Text style={styles.metaText}>{record.mileageKm.toLocaleString("ru-RU")} km</Text>
+              <Text style={styles.metaText}>{record.mileageKm.toLocaleString("ru-RU")} км</Text>
             </View>
             <View style={styles.metaItem}>
               <Ionicons name="wallet-outline" size={18} color={Colors.light.tint} />
@@ -110,7 +110,7 @@ export default function RecordDetailScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Items ({record.items.length})</Text>
+        <Text style={styles.sectionTitle}>Позиции ({record.items.length})</Text>
 
         {record.items.map((item, index) => (
           <View key={item.itemId} style={styles.itemRow}>
@@ -125,7 +125,7 @@ export default function RecordDetailScreen() {
         ))}
 
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalLabel}>Итого</Text>
           <Text style={styles.totalValue}>
             {record.totalCost.toLocaleString("ru-RU")} {record.currency}
           </Text>

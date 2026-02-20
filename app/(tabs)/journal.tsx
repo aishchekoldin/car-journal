@@ -22,9 +22,9 @@ function formatDate(dateStr: string): string {
 }
 
 function getBadgeStyle(eventType: string) {
-  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Planned" };
-  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Refueling" };
-  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Unplanned" };
+  if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Плановое" };
+  if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Заправка" };
+  return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Внеплановое" };
 }
 
 function RecordCard({ record }: { record: MaintenanceRecord }) {
@@ -46,7 +46,7 @@ function RecordCard({ record }: { record: MaintenanceRecord }) {
       <View style={styles.cardBottom}>
         <View style={styles.cardMileage}>
           <Ionicons name="speedometer-outline" size={14} color={Colors.light.textSecondary} />
-          <Text style={styles.cardMileageText}>{record.mileageKm.toLocaleString("ru-RU")} km</Text>
+          <Text style={styles.cardMileageText}>{record.mileageKm.toLocaleString("ru-RU")} км</Text>
         </View>
         <Text style={styles.cardTotal}>
           {record.totalCost.toLocaleString("ru-RU")} {record.currency}
@@ -86,16 +86,16 @@ export default function JournalScreen() {
   };
 
   const filterOptions: { key: FilterType; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "planned", label: "Planned" },
-    { key: "unplanned", label: "Unplanned" },
-    { key: "refueling", label: "Refueling" },
+    { key: "all", label: "Все" },
+    { key: "planned", label: "Плановое" },
+    { key: "unplanned", label: "Внеплановое" },
+    { key: "refueling", label: "Заправка" },
   ];
 
   return (
     <View style={[styles.container, { paddingTop: Platform.OS === "web" ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Journal</Text>
+        <Text style={styles.headerTitle}>Журнал</Text>
         <Pressable onPress={handleAdd} style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8 }]}>
           <Ionicons name="add" size={24} color="#fff" />
         </Pressable>
@@ -105,7 +105,7 @@ export default function JournalScreen() {
         <Ionicons name="search" size={18} color={Colors.light.tabIconDefault} style={{ marginRight: 8 }} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search records..."
+          placeholder="Поиск записей..."
           placeholderTextColor={Colors.light.tabIconDefault}
           value={search}
           onChangeText={setSearch}
@@ -143,10 +143,10 @@ export default function JournalScreen() {
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Ionicons name="document-text-outline" size={48} color={Colors.light.tabIconDefault} />
-            <Text style={styles.emptyTitle}>No records yet</Text>
-            <Text style={styles.emptySubtitle}>Add your first maintenance record</Text>
+            <Text style={styles.emptyTitle}>Записей пока нет</Text>
+            <Text style={styles.emptySubtitle}>Добавьте первую запись об обслуживании</Text>
             <Pressable style={styles.emptyBtn} onPress={handleAdd}>
-              <Text style={styles.emptyBtnText}>Add Record</Text>
+              <Text style={styles.emptyBtnText}>Добавить запись</Text>
             </Pressable>
           </View>
         }
