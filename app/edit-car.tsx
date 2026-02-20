@@ -1,0 +1,216 @@
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TextInput,
+  Pressable,
+  Platform,
+  KeyboardAvoidingView,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import * as Haptics from "expo-haptics";
+import Colors from "@/constants/colors";
+import { useData } from "@/lib/DataContext";
+
+const CURRENCIES = ["\u20BD", "\u20AC", "$"];
+
+export default function EditCarScreen() {
+  const insets = useSafeAreaInsets();
+  const { car, updateCar } = useData();
+
+  const [make, setMake] = useState(car.make);
+  const [model, setModel] = useState(car.model);
+  const [year, setYear] = useState(car.year);
+  const [vin, setVin] = useState(car.vin);
+  const [photoUri, setPhotoUri] = useState(car.photoUri);
+  const [currency, setCurrency] = useState(car.currency);
+
+  const handlePickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
+    await updateCar({ make, model, year, vin, photoUri, currency });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.back();
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
+    >
+      <View style={[styles.container, { paddingTop: Platform.OS === "web" ? 67 : insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="close" size={26} color={Colors.light.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Edit Car</Text>
+          <Pressable onPress={handleSave} hitSlop={12}>
+            <Ionicons name="checkmark" size={26} color={Colors.light.tint} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: Platform.OS === "web" ? 34 + 20 : insets.bottom + 20,
+          }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Pressable style={styles.photoWrap} onPress={handlePickImage}>
+            {photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" />
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Ionicons name="camera-outline" size={36} color={Colors.light.tint} />
+                <Text style={styles.photoText}>Tap to add photo</Text>
+              </View>
+            )}
+          </Pressable>
+
+          <Text style={styles.label}>Make</Text>
+          <TextInput
+            style={styles.input}
+            value={make}
+            onChangeText={setMake}
+            placeholder="e.g. Skoda"
+            placeholderTextColor={Colors.light.tabIconDefault}
+          />
+
+          <Text style={styles.label}>Model</Text>
+          <TextInput
+            style={styles.input}
+            value={model}
+            onChangeText={setModel}
+            placeholder="e.g. Yeti"
+            placeholderTextColor={Colors.light.tabIconDefault}
+          />
+
+          <Text style={styles.label}>Year</Text>
+          <TextInput
+            style={styles.input}
+            value={year}
+            onChangeText={(t) => setYear(t.replace(/[^0-9]/g, ""))}
+            placeholder="e.g. 2015"
+            placeholderTextColor={Colors.light.tabIconDefault}
+            keyboardType="numeric"
+            maxLength={4}
+          />
+
+          <Text style={styles.label}>VIN</Text>
+          <TextInput
+            style={styles.input}
+            value={vin}
+            onChangeText={setVin}
+            placeholder="VIN number"
+            placeholderTextColor={Colors.light.tabIconDefault}
+            autoCapitalize="characters"
+            maxLength={17}
+          />
+
+          <Text style={styles.label}>Currency</Text>
+          <View style={styles.currencyRow}>
+            {CURRENCIES.map((c) => (
+              <Pressable
+                key={c}
+                style={[styles.currencyChip, currency === c && styles.currencyChipActive]}
+                onPress={() => setCurrency(c)}
+              >
+                <Text style={[styles.currencyText, currency === c && styles.currencyTextActive]}>
+                  {c}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.85 }]}
+            onPress={handleSave}
+          >
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.light.background },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+    backgroundColor: Colors.light.surface,
+  },
+  headerTitle: { fontFamily: "Inter_600SemiBold", fontSize: 17, color: Colors.light.text },
+  photoWrap: { marginTop: 20, borderRadius: 16, overflow: "hidden" },
+  photo: { width: "100%", height: 180, borderRadius: 16 },
+  photoPlaceholder: {
+    width: "100%",
+    height: 180,
+    backgroundColor: Colors.light.tintLight,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.light.border,
+    borderStyle: "dashed",
+  },
+  photoText: { fontFamily: "Inter_500Medium", fontSize: 14, color: Colors.light.tint, marginTop: 8 },
+  label: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.textSecondary, marginBottom: 6, marginTop: 16 },
+  input: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  currencyRow: { flexDirection: "row", gap: 10 },
+  currencyChip: {
+    width: 56,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  currencyChipActive: { backgroundColor: Colors.light.tint, borderColor: Colors.light.tint },
+  currencyText: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: Colors.light.textSecondary },
+  currencyTextActive: { color: "#fff" },
+  saveButton: {
+    backgroundColor: Colors.light.tint,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 32,
+  },
+  saveButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 16, color: "#fff" },
+});
