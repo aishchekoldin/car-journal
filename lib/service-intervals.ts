@@ -36,14 +36,18 @@ export const SERVICE_INTERVALS: ServiceInterval[] = [
 const DEFAULT_INTERVAL_KM = 15000;
 const DEFAULT_INTERVAL_MONTHS = 12;
 
-export function getServiceInterval(make: string): { intervalKm: number; intervalMonths: number } {
+export function getServiceInterval(car: CarProfile): { intervalKm: number; intervalMonths: number; isCustom: boolean } {
+  if (car.customIntervalKm && car.customIntervalKm > 0 && car.customIntervalMonths && car.customIntervalMonths > 0) {
+    return { intervalKm: car.customIntervalKm, intervalMonths: car.customIntervalMonths, isCustom: true };
+  }
+
   const entry = SERVICE_INTERVALS.find(
-    (s) => s.make.toLowerCase() === make.toLowerCase()
+    (s) => s.make.toLowerCase() === car.make.toLowerCase()
   );
   if (entry) {
-    return { intervalKm: entry.intervalKm, intervalMonths: entry.intervalMonths };
+    return { intervalKm: entry.intervalKm, intervalMonths: entry.intervalMonths, isCustom: false };
   }
-  return { intervalKm: DEFAULT_INTERVAL_KM, intervalMonths: DEFAULT_INTERVAL_MONTHS };
+  return { intervalKm: DEFAULT_INTERVAL_KM, intervalMonths: DEFAULT_INTERVAL_MONTHS, isCustom: false };
 }
 
 export interface NextServiceInfo {
@@ -65,7 +69,7 @@ export function calcNextService(
   if (plannedRecords.length === 0) return null;
 
   const lastPlanned = plannedRecords[0];
-  const { intervalKm, intervalMonths } = getServiceInterval(car.make);
+  const { intervalKm, intervalMonths } = getServiceInterval(car);
 
   const byMileageKm = lastPlanned.mileageKm + intervalKm;
 

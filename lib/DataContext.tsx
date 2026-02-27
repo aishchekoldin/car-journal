@@ -25,6 +25,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     vin: "",
     photoUri: null,
     currency: "\u20BD",
+    customIntervalKm: null,
+    customIntervalMonths: null,
   });
   const [user, setUser] = useState<UserProfile>({ name: "", email: "" });
   const [isLoading, setIsLoading] = useState(true);

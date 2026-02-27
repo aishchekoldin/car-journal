@@ -22,6 +22,7 @@ function formatCost(value: number, currency: string): string {
 }
 
 function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
   const d = new Date(dateStr);
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
 }
@@ -34,6 +35,7 @@ function formatDateLong(dateStr: string): string {
 function getBadgeStyle(eventType: string) {
   if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Плановое" };
   if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Заправка" };
+  if (eventType === "future") return { bg: Colors.light.futureBg, text: Colors.light.future, label: "На будущее" };
   return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Внеплановое" };
 }
 
@@ -41,13 +43,14 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { records, car, isLoading } = useData();
 
-  const sorted = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const nonFutureRecords = records.filter((r) => r.eventType !== "future");
+  const sorted = [...nonFutureRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const lastRecord = sorted.length > 0 ? sorted[0] : null;
   const lastMileage = lastRecord ? lastRecord.mileageKm : null;
-  const avgMonth = getAvgPerMonth(records);
-  const avgYear = getAvgPerYear(records);
+  const avgMonth = getAvgPerMonth(nonFutureRecords);
+  const avgYear = getAvgPerYear(nonFutureRecords);
   const nextService = calcNextService(records, car);
-  const { intervalKm } = getServiceInterval(car.make);
+  const { intervalKm, isCustom } = getServiceInterval(car);
 
   if (isLoading) {
     return (
@@ -147,7 +150,7 @@ export default function DashboardScreen() {
             )}
           </View>
           <Text style={styles.serviceNote}>
-            Интервал: каждые {intervalKm.toLocaleString("ru-RU")} км ({car.make})
+            Интервал: каждые {intervalKm.toLocaleString("ru-RU")} км {isCustom ? "(свой)" : `(${car.make})`}
           </Text>
         </View>
       ) : (
@@ -198,14 +201,14 @@ export default function DashboardScreen() {
           <Ionicons name="calendar-outline" size={22} color={Colors.light.tint} />
           <Text style={styles.kpiLabel}>Среднее / мес.</Text>
           <Text style={styles.kpiValue}>
-            {records.length > 0 ? formatCost(avgMonth, car.currency) : "Нет данных"}
+            {nonFutureRecords.length > 0 ? formatCost(avgMonth, car.currency) : "Нет данных"}
           </Text>
         </View>
         <View style={styles.kpiCard}>
           <Ionicons name="trending-up-outline" size={22} color={Colors.light.accent} />
           <Text style={styles.kpiLabel}>Среднее / год</Text>
           <Text style={styles.kpiValue}>
-            {records.length > 0 ? formatCost(avgYear, car.currency) : "Нет данных"}
+            {nonFutureRecords.length > 0 ? formatCost(avgYear, car.currency) : "Нет данных"}
           </Text>
         </View>
       </View>

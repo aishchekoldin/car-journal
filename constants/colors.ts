@@ -19,6 +19,8 @@ const Colors = {
     unplannedBg: "#FEF3C7",
     refueling: "#10B981",
     refuelingBg: "#D1FAE5",
+    future: "#8B5CF6",
+    futureBg: "#EDE9FE",
     cardShadow: "rgba(0,0,0,0.06)",
   },
 };

@@ -16,6 +16,7 @@ import Colors from "@/constants/colors";
 import { useData } from "@/lib/DataContext";
 
 function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
   const d = new Date(dateStr);
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 }
@@ -23,6 +24,7 @@ function formatDate(dateStr: string): string {
 function getBadgeStyle(eventType: string) {
   if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Плановое" };
   if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Заправка" };
+  if (eventType === "future") return { bg: Colors.light.futureBg, text: Colors.light.future, label: "На будущее" };
   return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Внеплановое" };
 }
 
@@ -51,6 +53,7 @@ export default function RecordDetailScreen() {
   }
 
   const badge = getBadgeStyle(record.eventType);
+  const isFuture = record.eventType === "future";
 
   const handleDelete = () => {
     Alert.alert("Удалить запись", "Вы уверены, что хотите удалить эту запись?", [
@@ -94,20 +97,26 @@ export default function RecordDetailScreen() {
           </View>
 
           <Text style={styles.recordTitle}>{record.title}</Text>
-          <Text style={styles.recordDate}>{formatDate(record.date)}</Text>
+          {!isFuture && record.date ? (
+            <Text style={styles.recordDate}>{formatDate(record.date)}</Text>
+          ) : isFuture ? (
+            <Text style={styles.recordDate}>Запланировано на будущее</Text>
+          ) : null}
 
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Ionicons name="speedometer-outline" size={18} color={Colors.light.tint} />
-              <Text style={styles.metaText}>{record.mileageKm.toLocaleString("ru-RU")} км</Text>
+          {!isFuture && (
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Ionicons name="speedometer-outline" size={18} color={Colors.light.tint} />
+                <Text style={styles.metaText}>{record.mileageKm.toLocaleString("ru-RU")} км</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Ionicons name="wallet-outline" size={18} color={Colors.light.tint} />
+                <Text style={styles.metaText}>
+                  {record.totalCost.toLocaleString("ru-RU")} {record.currency}
+                </Text>
+              </View>
             </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="wallet-outline" size={18} color={Colors.light.tint} />
-              <Text style={styles.metaText}>
-                {record.totalCost.toLocaleString("ru-RU")} {record.currency}
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>Позиции ({record.items.length})</Text>
@@ -118,18 +127,22 @@ export default function RecordDetailScreen() {
               <Text style={styles.itemIndexText}>{index + 1}</Text>
             </View>
             <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemCost}>
-              {item.cost.toLocaleString("ru-RU")} {record.currency}
-            </Text>
+            {!isFuture && (
+              <Text style={styles.itemCost}>
+                {item.cost.toLocaleString("ru-RU")} {record.currency}
+              </Text>
+            )}
           </View>
         ))}
 
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Итого</Text>
-          <Text style={styles.totalValue}>
-            {record.totalCost.toLocaleString("ru-RU")} {record.currency}
-          </Text>
-        </View>
+        {!isFuture && (
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Итого</Text>
+            <Text style={styles.totalValue}>
+              {record.totalCost.toLocaleString("ru-RU")} {record.currency}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

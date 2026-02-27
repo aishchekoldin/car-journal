@@ -14,21 +14,146 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
 import Colors from "@/constants/colors";
 import { useData } from "@/lib/DataContext";
+import { getServiceInterval } from "@/lib/service-intervals";
+
+WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "";
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, car, updateUser } = useData();
+  const { user, car, updateUser, updateCar } = useData();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [saved, setSaved] = useState(false);
+
+  const currentInterval = getServiceInterval(car);
+  const [customKm, setCustomKm] = useState(
+    car.customIntervalKm ? car.customIntervalKm.toString() : ""
+  );
+  const [customMonths, setCustomMonths] = useState(
+    car.customIntervalMonths ? car.customIntervalMonths.toString() : ""
+  );
+  const [intervalSaved, setIntervalSaved] = useState(false);
+
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const clientId = Platform.select({
+    ios: GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
+    android: GOOGLE_ANDROID_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
+    default: GOOGLE_WEB_CLIENT_ID,
+  }) || "";
+
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: "com.carjournal.app",
+  });
+
+  const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
+
+  const handleGoogleLogin = async () => {
+    if (!discovery) {
+      Alert.alert("Ошибка", "Не удалось подключиться к Google. Попробуйте позже.");
+      return;
+    }
+
+    if (!clientId) {
+      Alert.alert(
+        "Настройка Google",
+        "Для авторизации через Google укажите EXPO_PUBLIC_GOOGLE_CLIENT_ID в настройках приложения."
+      );
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const request = new AuthSession.AuthRequest({
+        clientId,
+        redirectUri,
+        scopes: ["openid", "profile", "email"],
+        responseType: AuthSession.ResponseType.Token,
+      });
+
+      const result = await request.promptAsync(discovery);
+
+      if (result.type === "success" && result.authentication?.accessToken) {
+        const userInfoResponse = await fetch(
+          "https://www.googleapis.com/oauth2/v3/userinfo",
+          { headers: { Authorization: `Bearer ${result.authentication.accessToken}` } }
+        );
+        const userInfo = await userInfoResponse.json();
+
+        await updateUser({
+          name: userInfo.name || user.name,
+          email: userInfo.email || user.email,
+        });
+        setName(userInfo.name || user.name);
+        setEmail(userInfo.email || user.email);
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Успешно", `Вы вошли как ${userInfo.email}`);
+      }
+    } catch (error) {
+      Alert.alert("Ошибка", "Не удалось войти через Google. Попробуйте ещё раз.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSaveUser = async () => {
     await updateUser({ name, email });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleSaveInterval = async () => {
+    const km = customKm.trim() ? parseInt(customKm, 10) : null;
+    const months = customMonths.trim() ? parseInt(customMonths, 10) : null;
+
+    if (km !== null && (isNaN(km) || km <= 0)) {
+      Alert.alert("Ошибка", "Пробег должен быть > 0");
+      return;
+    }
+    if (months !== null && (isNaN(months) || months <= 0)) {
+      Alert.alert("Ошибка", "Количество месяцев должно быть > 0");
+      return;
+    }
+
+    const bothSet = km !== null && months !== null;
+    const noneSet = km === null && months === null;
+
+    if (!bothSet && !noneSet) {
+      Alert.alert("Ошибка", "Укажите оба значения (пробег и месяцы) или оставьте оба поля пустыми для сброса");
+      return;
+    }
+
+    await updateCar({
+      ...car,
+      customIntervalKm: km,
+      customIntervalMonths: months,
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIntervalSaved(true);
+    setTimeout(() => setIntervalSaved(false), 2000);
+  };
+
+  const handleResetInterval = async () => {
+    setCustomKm("");
+    setCustomMonths("");
+    await updateCar({
+      ...car,
+      customIntervalKm: null,
+      customIntervalMonths: null,
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIntervalSaved(true);
+    setTimeout(() => setIntervalSaved(false), 2000);
   };
 
   const handleStub = (action: string) => {
@@ -103,16 +228,68 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Интервал ТО</Text>
+        <Text style={styles.intervalHint}>
+          {currentInterval.isCustom
+            ? `Свой интервал: ${currentInterval.intervalKm.toLocaleString("ru-RU")} км / ${currentInterval.intervalMonths} мес.`
+            : `По умолчанию (${car.make}): ${currentInterval.intervalKm.toLocaleString("ru-RU")} км / ${currentInterval.intervalMonths} мес.`}
+        </Text>
+        <Text style={styles.label}>Пробег (км)</Text>
+        <TextInput
+          style={styles.input}
+          value={customKm}
+          onChangeText={(t) => setCustomKm(t.replace(/[^0-9]/g, ""))}
+          placeholder={`напр. ${currentInterval.intervalKm}`}
+          placeholderTextColor={Colors.light.tabIconDefault}
+          keyboardType="numeric"
+        />
+        <Text style={styles.label}>Интервал (мес.)</Text>
+        <TextInput
+          style={styles.input}
+          value={customMonths}
+          onChangeText={(t) => setCustomMonths(t.replace(/[^0-9]/g, ""))}
+          placeholder={`напр. ${currentInterval.intervalMonths}`}
+          placeholderTextColor={Colors.light.tabIconDefault}
+          keyboardType="numeric"
+        />
+        <View style={styles.intervalBtnRow}>
+          <Pressable
+            style={({ pressed }) => [styles.saveBtn, styles.intervalSaveBtn, pressed && { opacity: 0.85 }]}
+            onPress={handleSaveInterval}
+          >
+            {intervalSaved ? (
+              <Ionicons name="checkmark" size={18} color="#fff" />
+            ) : (
+              <Text style={styles.saveBtnText}>Сохранить</Text>
+            )}
+          </Pressable>
+          {currentInterval.isCustom && (
+            <Pressable
+              style={({ pressed }) => [styles.resetBtn, pressed && { opacity: 0.85 }]}
+              onPress={handleResetInterval}
+            >
+              <Text style={styles.resetBtnText}>Сбросить</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>Аккаунт</Text>
+        <Pressable
+          style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.85 }]}
+          onPress={handleGoogleLogin}
+          disabled={googleLoading}
+        >
+          <Ionicons name="logo-google" size={20} color="#fff" />
+          <Text style={styles.googleBtnText}>
+            {googleLoading ? "Вход..." : "Войти через Google"}
+          </Text>
+        </Pressable>
+        <View style={styles.divider} />
         <Pressable style={styles.actionRow} onPress={() => handleStub("Сменить пароль")}>
           <Ionicons name="lock-closed-outline" size={20} color={Colors.light.text} />
           <Text style={styles.actionText}>Сменить пароль</Text>
-          <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
-        </Pressable>
-        <View style={styles.divider} />
-        <Pressable style={styles.actionRow} onPress={() => handleStub("Сменить email")}>
-          <Ionicons name="mail-outline" size={20} color={Colors.light.text} />
-          <Text style={styles.actionText}>Сменить email</Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
         </Pressable>
         <View style={styles.divider} />
@@ -168,6 +345,25 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   saveBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: "#fff" },
+  intervalHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginBottom: 12,
+    fontStyle: "italic" as const,
+  },
+  intervalBtnRow: { flexDirection: "row", gap: 10, marginTop: 4 },
+  intervalSaveBtn: { flex: 1 },
+  resetBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: Colors.light.background,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  resetBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.light.textSecondary },
   carRow: { flexDirection: "row", alignItems: "center" },
   carThumb: { width: 56, height: 56, borderRadius: 14 },
   carThumbPlaceholder: {
@@ -179,6 +375,17 @@ const styles = StyleSheet.create({
   carName: { fontFamily: "Inter_600SemiBold", fontSize: 16, color: Colors.light.text },
   carSub: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary, marginTop: 2 },
   carCurrency: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.textSecondary, marginTop: 1 },
+  googleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#EA4335",
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  googleBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: "#fff" },
   actionRow: {
     flexDirection: "row",
     alignItems: "center",

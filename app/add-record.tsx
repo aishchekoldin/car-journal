@@ -22,6 +22,7 @@ const EVENT_LABELS: Record<EventType, string> = {
   planned: "Плановое",
   unplanned: "Внеплановое",
   refueling: "Заправка",
+  future: "На будущее",
 };
 
 export default function AddRecordScreen() {
@@ -37,6 +38,7 @@ export default function AddRecordScreen() {
   const [newItemCost, setNewItemCost] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const isFuture = eventType === "future";
   const totalCost = items.reduce((s, i) => s + i.cost, 0);
 
   const clearError = (key: string) => {
@@ -50,14 +52,19 @@ export default function AddRecordScreen() {
   const handleAddItem = () => {
     const errs: Record<string, string> = {};
     if (!newItemName.trim()) errs.itemName = "Введите название";
-    const costVal = newItemCost.trim();
-    const costNum = costVal === "" ? NaN : parseFloat(costVal);
-    if (costVal === "" || isNaN(costNum) || costNum < 0) errs.itemCost = "Введите стоимость (>= 0)";
+
+    if (!isFuture) {
+      const costVal = newItemCost.trim();
+      const costNum = costVal === "" ? NaN : parseFloat(costVal);
+      if (costVal === "" || isNaN(costNum) || costNum < 0) errs.itemCost = "Введите стоимость (>= 0)";
+    }
 
     if (Object.keys(errs).length > 0) {
       setErrors((prev) => ({ ...prev, ...errs }));
       return;
     }
+
+    const costNum = isFuture ? 0 : parseFloat(newItemCost.trim());
 
     setItems((prev) => [
       ...prev,
@@ -81,11 +88,15 @@ export default function AddRecordScreen() {
 
   const handleSave = async () => {
     const errs: Record<string, string> = {};
-    const mileageNum = parseInt(mileage, 10);
-    if (!mileage || isNaN(mileageNum) || mileageNum <= 0) errs.mileage = "Должно быть > 0";
+
+    if (!isFuture) {
+      const mileageNum = parseInt(mileage, 10);
+      if (!mileage || isNaN(mileageNum) || mileageNum <= 0) errs.mileage = "Должно быть > 0";
+      if (!date) errs.date = "Обязательное поле";
+    }
+
     if (!title.trim()) errs.title = "Обязательное поле";
     if (items.length === 0) errs.items = "Добавьте хотя бы одну позицию";
-    if (!date) errs.date = "Обязательное поле";
 
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -93,11 +104,12 @@ export default function AddRecordScreen() {
       return;
     }
 
-    const computedTotal = items.reduce((s, i) => s + i.cost, 0);
+    const computedTotal = isFuture ? 0 : items.reduce((s, i) => s + i.cost, 0);
+    const mileageNum = isFuture ? 0 : parseInt(mileage, 10);
 
     await addRecord({
       id: generateId(),
-      date,
+      date: isFuture ? "" : date,
       mileageKm: mileageNum,
       eventType,
       title: title.trim(),
@@ -135,30 +147,9 @@ export default function AddRecordScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.label}>Дата</Text>
-          <TextInput
-            style={[styles.input, errors.date && styles.inputError]}
-            value={date}
-            onChangeText={(t) => { setDate(t); clearError("date"); }}
-            placeholder="ГГГГ-ММ-ДД"
-            placeholderTextColor={Colors.light.tabIconDefault}
-          />
-          {errors.date ? <Text style={styles.errorText}>{errors.date}</Text> : null}
-
-          <Text style={styles.label}>Пробег (км)</Text>
-          <TextInput
-            style={[styles.input, errors.mileage && styles.inputError]}
-            value={mileage}
-            onChangeText={(t) => { setMileage(t.replace(/[^0-9]/g, "")); clearError("mileage"); }}
-            placeholder="напр. 120000"
-            placeholderTextColor={Colors.light.tabIconDefault}
-            keyboardType="numeric"
-          />
-          {errors.mileage ? <Text style={styles.errorText}>{errors.mileage}</Text> : null}
-
           <Text style={styles.label}>Тип события</Text>
           <View style={styles.typeRow}>
-            {(["planned", "unplanned", "refueling"] as EventType[]).map((t) => (
+            {(["planned", "unplanned", "refueling", "future"] as EventType[]).map((t) => (
               <Pressable
                 key={t}
                 style={[styles.typeChip, eventType === t && styles.typeChipActive]}
@@ -171,12 +162,40 @@ export default function AddRecordScreen() {
             ))}
           </View>
 
+          {!isFuture && (
+            <>
+              <Text style={styles.label}>Дата</Text>
+              <TextInput
+                style={[styles.input, errors.date && styles.inputError]}
+                value={date}
+                onChangeText={(t) => { setDate(t); clearError("date"); }}
+                placeholder="ГГГГ-ММ-ДД"
+                placeholderTextColor={Colors.light.tabIconDefault}
+              />
+              {errors.date ? <Text style={styles.errorText}>{errors.date}</Text> : null}
+
+              <Text style={styles.label}>Пробег (км)</Text>
+              <TextInput
+                style={[styles.input, errors.mileage && styles.inputError]}
+                value={mileage}
+                onChangeText={(t) => { setMileage(t.replace(/[^0-9]/g, "")); clearError("mileage"); }}
+                placeholder="напр. 120000"
+                placeholderTextColor={Colors.light.tabIconDefault}
+                keyboardType="numeric"
+              />
+              {errors.mileage ? <Text style={styles.errorText}>{errors.mileage}</Text> : null}
+            </>
+          )}
+
           <Text style={styles.label}>Название</Text>
           <TextInput
             style={[styles.input, errors.title && styles.inputError]}
             value={title}
             onChangeText={(t) => { setTitle(t); clearError("title"); }}
-            placeholder={eventType === "refueling" ? "напр. АИ-95 50л" : "напр. ТО 120 000"}
+            placeholder={
+              isFuture ? "напр. Заменить тормозные колодки" :
+              eventType === "refueling" ? "напр. АИ-95 50л" : "напр. ТО 120 000"
+            }
             placeholderTextColor={Colors.light.tabIconDefault}
           />
           {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
@@ -191,7 +210,9 @@ export default function AddRecordScreen() {
               <View key={item.itemId} style={styles.itemRow}>
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemCost}>{item.cost.toLocaleString("ru-RU")} {car.currency}</Text>
+                  {!isFuture && (
+                    <Text style={styles.itemCost}>{item.cost.toLocaleString("ru-RU")} {car.currency}</Text>
+                  )}
                 </View>
                 <Pressable onPress={() => handleRemoveItem(item.itemId)} hitSlop={8}>
                   <Ionicons name="close-circle" size={22} color={Colors.light.danger} />
@@ -204,20 +225,26 @@ export default function AddRecordScreen() {
                 style={[styles.addItemInput, errors.itemName && styles.inputError]}
                 value={newItemName}
                 onChangeText={(t) => { setNewItemName(t); clearError("itemName"); }}
-                placeholder="Название позиции"
+                placeholder={isFuture ? "Что нужно сделать" : "Название позиции"}
                 placeholderTextColor={Colors.light.tabIconDefault}
               />
               <View style={styles.addItemBottomRow}>
-                <TextInput
-                  style={[styles.addItemCostInput, errors.itemCost && styles.inputError]}
-                  value={newItemCost}
-                  onChangeText={(t) => { setNewItemCost(t.replace(/[^0-9.]/g, "")); clearError("itemCost"); }}
-                  placeholder="Стоимость"
-                  placeholderTextColor={Colors.light.tabIconDefault}
-                  keyboardType="numeric"
-                />
+                {!isFuture && (
+                  <TextInput
+                    style={[styles.addItemCostInput, errors.itemCost && styles.inputError]}
+                    value={newItemCost}
+                    onChangeText={(t) => { setNewItemCost(t.replace(/[^0-9.]/g, "")); clearError("itemCost"); }}
+                    placeholder="Стоимость"
+                    placeholderTextColor={Colors.light.tabIconDefault}
+                    keyboardType="numeric"
+                  />
+                )}
                 <Pressable
-                  style={({ pressed }) => [styles.addItemBtn, pressed && { opacity: 0.85 }]}
+                  style={({ pressed }) => [
+                    styles.addItemBtn,
+                    isFuture && styles.addItemBtnFull,
+                    pressed && { opacity: 0.85 },
+                  ]}
                   onPress={handleAddItem}
                 >
                   <Ionicons name="add" size={20} color="#fff" />
@@ -227,10 +254,12 @@ export default function AddRecordScreen() {
             </View>
           </View>
 
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Итого</Text>
-            <Text style={styles.totalValue}>{totalCost.toLocaleString("ru-RU")} {car.currency}</Text>
-          </View>
+          {!isFuture && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Итого</Text>
+              <Text style={styles.totalValue}>{totalCost.toLocaleString("ru-RU")} {car.currency}</Text>
+            </View>
+          )}
 
           <Pressable
             style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.85 }]}
@@ -272,9 +301,9 @@ const styles = StyleSheet.create({
   inputError: { borderColor: Colors.light.danger },
   errorText: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.danger, marginTop: 4 },
   errorTextInline: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.danger },
-  typeRow: { flexDirection: "row", gap: 8 },
+  typeRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   typeChip: {
-    flex: 1,
+    paddingHorizontal: 14,
     paddingVertical: 11,
     borderRadius: 12,
     backgroundColor: Colors.light.surface,
@@ -339,10 +368,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: Colors.light.tint,
     justifyContent: "center",
+    flexShrink: 0,
   },
+  addItemBtnFull: { flex: 1 },
   addItemBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" },
   totalRow: {
     flexDirection: "row",

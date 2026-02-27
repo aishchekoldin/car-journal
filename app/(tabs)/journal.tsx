@@ -7,6 +7,7 @@ import {
   Pressable,
   TextInput,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ import { useData } from "@/lib/DataContext";
 import type { MaintenanceRecord, EventType } from "@/lib/types";
 
 function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
   const d = new Date(dateStr);
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
 }
@@ -24,18 +26,24 @@ function formatDate(dateStr: string): string {
 function getBadgeStyle(eventType: string) {
   if (eventType === "planned") return { bg: Colors.light.plannedBg, text: Colors.light.planned, label: "Плановое" };
   if (eventType === "refueling") return { bg: Colors.light.refuelingBg, text: Colors.light.refueling, label: "Заправка" };
+  if (eventType === "future") return { bg: Colors.light.futureBg, text: Colors.light.future, label: "На будущее" };
   return { bg: Colors.light.unplannedBg, text: Colors.light.unplanned, label: "Внеплановое" };
 }
 
 function RecordCard({ record }: { record: MaintenanceRecord }) {
   const badge = getBadgeStyle(record.eventType);
+  const isFuture = record.eventType === "future";
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       onPress={() => router.push({ pathname: "/record-detail", params: { id: record.id } })}
     >
       <View style={styles.cardTop}>
-        <Text style={styles.cardDate}>{formatDate(record.date)}</Text>
+        {isFuture ? (
+          <Text style={styles.cardDate}>Запланировано</Text>
+        ) : (
+          <Text style={styles.cardDate}>{formatDate(record.date)}</Text>
+        )}
         <View style={[styles.badge, { backgroundColor: badge.bg }]}>
           <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
         </View>
@@ -43,15 +51,22 @@ function RecordCard({ record }: { record: MaintenanceRecord }) {
       <Text style={styles.cardTitle} numberOfLines={1}>
         {record.title}
       </Text>
-      <View style={styles.cardBottom}>
-        <View style={styles.cardMileage}>
-          <Ionicons name="speedometer-outline" size={14} color={Colors.light.textSecondary} />
-          <Text style={styles.cardMileageText}>{record.mileageKm.toLocaleString("ru-RU")} км</Text>
+      {!isFuture && (
+        <View style={styles.cardBottom}>
+          <View style={styles.cardMileage}>
+            <Ionicons name="speedometer-outline" size={14} color={Colors.light.textSecondary} />
+            <Text style={styles.cardMileageText}>{record.mileageKm.toLocaleString("ru-RU")} км</Text>
+          </View>
+          <Text style={styles.cardTotal}>
+            {record.totalCost.toLocaleString("ru-RU")} {record.currency}
+          </Text>
         </View>
-        <Text style={styles.cardTotal}>
-          {record.totalCost.toLocaleString("ru-RU")} {record.currency}
-        </Text>
-      </View>
+      )}
+      {isFuture && (
+        <View style={styles.cardBottom}>
+          <Text style={styles.cardFutureItems}>{record.items.length} поз.</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -65,7 +80,12 @@ export default function JournalScreen() {
   const [filter, setFilter] = useState<FilterType>("all");
 
   const filtered = useMemo(() => {
-    let list = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    let list = [...records].sort((a, b) => {
+      if (a.eventType === "future" && b.eventType !== "future") return 1;
+      if (a.eventType !== "future" && b.eventType === "future") return -1;
+      if (a.eventType === "future" && b.eventType === "future") return 0;
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
     if (filter !== "all") {
       list = list.filter((r) => r.eventType === filter);
     }
@@ -90,6 +110,7 @@ export default function JournalScreen() {
     { key: "planned", label: "Плановое" },
     { key: "unplanned", label: "Внеплановое" },
     { key: "refueling", label: "Заправка" },
+    { key: "future", label: "На будущее" },
   ];
 
   return (
@@ -117,7 +138,7 @@ export default function JournalScreen() {
         )}
       </View>
 
-      <View style={styles.filterRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
         {filterOptions.map((f) => (
           <Pressable
             key={f.key}
@@ -129,7 +150,7 @@ export default function JournalScreen() {
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       <FlatList
         data={filtered}
@@ -193,10 +214,9 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     padding: 0,
   },
+  filterScroll: { flexGrow: 0, marginBottom: 12 },
   filterRow: {
-    flexDirection: "row",
     paddingHorizontal: 20,
-    marginBottom: 12,
     gap: 8,
   },
   filterChip: {
@@ -238,6 +258,7 @@ const styles = StyleSheet.create({
   cardMileage: { flexDirection: "row", alignItems: "center", gap: 4 },
   cardMileageText: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary },
   cardTotal: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.light.tint },
+  cardFutureItems: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.future },
   emptyWrap: { alignItems: "center", paddingTop: 80 },
   emptyTitle: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: Colors.light.text, marginTop: 16 },
   emptySubtitle: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.light.textSecondary, marginTop: 4, marginBottom: 20 },

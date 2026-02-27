@@ -55,18 +55,19 @@ export default function StatsScreen() {
   const insets = useSafeAreaInsets();
   const { records, car } = useData();
 
-  const monthlyData = getMonthlyTotals(records, 6);
-  const avgMonth = getAvgPerMonth(records);
-  const avgYear = getAvgPerYear(records);
-  const plannedTotal = getPlannedTotal(records);
-  const unplannedTotal = getUnplannedTotal(records);
-  const refuelingTotal = getRefuelingTotal(records);
+  const costRecords = records.filter((r) => r.eventType !== "future");
+  const monthlyData = getMonthlyTotals(costRecords, 6);
+  const avgMonth = getAvgPerMonth(costRecords);
+  const avgYear = getAvgPerYear(costRecords);
+  const plannedTotal = getPlannedTotal(costRecords);
+  const unplannedTotal = getUnplannedTotal(costRecords);
+  const refuelingTotal = getRefuelingTotal(costRecords);
   const grandTotal = plannedTotal + unplannedTotal + refuelingTotal;
   const plannedPct = grandTotal > 0 ? Math.round((plannedTotal / grandTotal) * 100) : 0;
   const unplannedPct = grandTotal > 0 ? Math.round((unplannedTotal / grandTotal) * 100) : 0;
   const refuelingPct = grandTotal > 0 ? 100 - plannedPct - unplannedPct : 0;
 
-  const hasData = records.length > 0;
+  const hasData = costRecords.length > 0;
 
   return (
     <ScrollView

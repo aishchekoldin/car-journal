@@ -4,7 +4,7 @@ export interface RecordItem {
   cost: number;
 }
 
-export type EventType = "planned" | "unplanned" | "refueling";
+export type EventType = "planned" | "unplanned" | "refueling" | "future";
 
 export interface MaintenanceRecord {
   id: string;
@@ -24,6 +24,8 @@ export interface CarProfile {
   vin: string;
   photoUri: string | null;
   currency: string;
+  customIntervalKm?: number | null;
+  customIntervalMonths?: number | null;
 }
 
 export interface UserProfile {

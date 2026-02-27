@@ -25,9 +25,14 @@ export async function loadCarProfile(): Promise<CarProfile> {
       vin: "",
       photoUri: null,
       currency: "\u20BD",
+      customIntervalKm: null,
+      customIntervalMonths: null,
     };
   }
-  return JSON.parse(raw) as CarProfile;
+  const parsed = JSON.parse(raw) as CarProfile;
+  if (parsed.customIntervalKm === undefined) parsed.customIntervalKm = null;
+  if (parsed.customIntervalMonths === undefined) parsed.customIntervalMonths = null;
+  return parsed;
 }
 
 export async function saveCarProfile(profile: CarProfile): Promise<void> {
