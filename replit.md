@@ -16,7 +16,7 @@ Preferred communication style: Simple, everyday language.
   - Tab screens: `app/(tabs)/` — index (dashboard), journal, stats, profile
   - Modal/stack screens: `app/add-record.tsx`, `app/edit-car.tsx`, `app/record-detail.tsx`
 - **State Management**: React Context (`lib/DataContext.tsx`) wrapping the entire app, providing CRUD operations for records, car profile, and user profile
-- **Data Persistence**: AsyncStorage (`lib/storage.ts`) — currently the primary data store for all app data (records, car profile, user profile). This is a local-only solution.
+- **Data Persistence**: AsyncStorage (`lib/storage.ts`) — currently the primary data store for all app data (records, car profile, user profile). This is a local-only solution; not yet connected to the backend API.
 - **Styling**: Custom StyleSheet-based styling with a centralized color system (`constants/colors.ts`). Primary color is blue (#2563EB). Uses Inter font family via `@expo-google-fonts/inter`.
 - **Key Libraries**: 
   - `react-native-gesture-handler`, `react-native-reanimated` for gestures/animations
@@ -28,15 +28,41 @@ Preferred communication style: Simple, everyday language.
 
 ### Backend (Express Server)
 - **Framework**: Express 5 on Node.js (`server/index.ts`)
-- **Routes**: Registered in `server/routes.ts` — currently minimal, serves as API scaffold with `/api` prefix convention
-- **Storage Layer**: `server/storage.ts` has a `MemStorage` class implementing `IStorage` interface for users. This is an in-memory placeholder.
+- **Database Connection**: `server/db.ts` — Drizzle ORM with `pg` (node-postgres) Pool driver
+- **Routes**: `server/routes.ts` — Full RESTful API with `/api` prefix:
+  - `POST /api/users` — create user
+  - `GET /api/users/:id` — get user (excludes password)
+  - `PUT /api/users/:id` — update user profile
+  - `POST /api/auth/google` — Google OAuth login/registration (upsert by googleId)
+  - `GET /api/users/:userId/cars` — list user's cars
+  - `GET /api/cars/:id` — get car
+  - `POST /api/cars` — create car
+  - `PUT /api/cars/:id` — update car
+  - `DELETE /api/cars/:id` — delete car (cascades to records)
+  - `GET /api/cars/:carId/records` — list records for car
+  - `GET /api/users/:userId/records` — list records for user
+  - `GET /api/records/:id` — get record with items
+  - `POST /api/records` — create record with items
+  - `PUT /api/records/:id` — update record (replaces items if provided)
+  - `DELETE /api/records/:id` — delete record
+  - `GET /api/service-intervals` — list all brand intervals
+  - `GET /api/service-intervals/:make` — get interval by make
+- **Storage Layer**: `server/storage.ts` — `DatabaseStorage` class implementing `IStorage` interface with full PostgreSQL persistence via Drizzle ORM
+- **Seed Data**: `server/seed-data.ts` — 30+ car brand service intervals auto-seeded on startup
 - **GitHub Integration**: `server/github.ts` — Octokit client for GitHub connector
 - **CORS**: Configured for Replit domains and localhost development
 - **Build**: Uses `esbuild` for server bundling, `tsx` for development
 
 ### Database Schema (Drizzle ORM)
 - **ORM**: Drizzle ORM with PostgreSQL dialect (`drizzle.config.ts`)
-- **Schema**: `shared/schema.ts` — currently only has a `users` table (id, username, password). The maintenance records, car profiles, etc. are NOT yet in the database schema — they live in AsyncStorage on the client.
+- **Schema**: `shared/schema.ts` — 5 tables:
+  - `users` — id (UUID), username, password, displayName, email, googleId, createdAt
+  - `cars` — id (UUID), userId (FK→users), make, model, year, vin, photoUri, currency, customIntervalKm, customIntervalMonths, createdAt
+  - `service_intervals` — id (UUID), make, models (text[]), intervalKm, intervalMonths
+  - `maintenance_records` — id (UUID), carId (FK→cars), userId (FK→users), date, mileageKm, eventType (enum: planned/unplanned/refueling/future), title, totalCost (numeric), currency, createdAt
+  - `record_items` — id (UUID), recordId (FK→maintenance_records), name, cost (numeric)
+- **Cascade deletes**: Deleting a user cascades to cars → records → items; deleting a car cascades to records → items
+- **Enum**: `event_type` PostgreSQL enum for planned/unplanned/refueling/future
 - **Migration**: Uses `drizzle-kit push` for schema sync
 - **Validation**: `drizzle-zod` for schema-to-Zod validation
 
@@ -54,12 +80,13 @@ Defined in `lib/types.ts`:
 - **На будущее (future)**: Planned future work — hides date/mileage/cost fields, shown with purple (#8B5CF6) badge, excluded from stats and dashboard KPIs
 
 ### Key Architectural Notes
-- The app has a **split architecture**: the mobile frontend stores all car/record data locally via AsyncStorage, while the Express backend with Postgres is scaffolded but not yet wired up for this data.
-- **Service intervals** (`lib/service-intervals.ts`) contain 30+ car makes with recommended maintenance intervals. `getServiceInterval(car: CarProfile)` checks custom interval first, then falls back to brand defaults.
+- The backend is fully built with PostgreSQL persistence for users, cars, records, and service intervals.
+- The mobile frontend still stores data locally via AsyncStorage — not yet wired to the API. Future step: connect frontend DataContext to backend API via React Query.
+- **Service intervals** (`lib/service-intervals.ts` client-side + `service_intervals` DB table) contain 30+ car makes with recommended maintenance intervals. `getServiceInterval(car: CarProfile)` checks custom interval first, then falls back to brand defaults.
 - **Custom service intervals** can be set per car (km and months) in the Profile screen, saved to `CarProfile.customIntervalKm` and `CarProfile.customIntervalMonths`.
 - **Statistics** (`lib/stats.ts`) compute monthly totals, averages, and planned vs unplanned breakdowns — "future" records are excluded.
 - The app uses Russian locale formatting (dates, numbers) and Ruble (₽) currency, but currency is configurable per car profile.
-- **Google Auth**: Uses `expo-auth-session` with platform-specific client IDs (`EXPO_PUBLIC_GOOGLE_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`). Requires Google OAuth credentials to function.
+- **Google Auth**: Uses `expo-auth-session` with platform-specific client IDs (`EXPO_PUBLIC_GOOGLE_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`). Backend has `/api/auth/google` endpoint for user upsert by googleId.
 
 ### Build & Development
 - **Dev mode**: Two processes — `expo:dev` for the mobile app, `server:dev` for the Express backend
@@ -69,7 +96,8 @@ Defined in `lib/types.ts`:
 
 ## External Dependencies
 
-- **PostgreSQL**: Required via `DATABASE_URL` environment variable. Used by Drizzle ORM for the server-side database. Currently only the `users` table is defined.
-- **AsyncStorage**: `@react-native-async-storage/async-storage` for client-side persistent storage of maintenance records, car profile, and user profile.
+- **PostgreSQL**: Required via `DATABASE_URL` environment variable. Full schema with 5 tables for users, cars, records, record items, and service intervals.
+- **pg**: `pg` (node-postgres) for database connections via connection pool
+- **AsyncStorage**: `@react-native-async-storage/async-storage` for client-side persistent storage (still in use, not yet migrated to API)
 - **Expo Services**: Standard Expo managed workflow services (splash screen, fonts, image picker, haptics, auth-session, web-browser, etc.)
 - **Google OAuth**: Optional — requires `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (and optionally platform-specific IDs) to enable Google sign-in.
