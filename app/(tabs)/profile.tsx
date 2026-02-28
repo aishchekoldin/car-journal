@@ -29,17 +29,13 @@ const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_I
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, cars, car, updateUser, updateCar, addCar, deleteCar, selectCar } = useData();
+  const { user, cars, car, updateUser, addCar, deleteCar, selectCar } = useData();
 
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
 
   const [carDetailId, setCarDetailId] = useState<string | null>(null);
-  const carDetail = carDetailId ? cars.find((c) => c.id === carDetailId) : null;
-
-  const [customKm, setCustomKm] = useState("");
-  const [customMonths, setCustomMonths] = useState("");
 
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -92,37 +88,6 @@ export default function ProfileScreen() {
     await updateUser({ name, email });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setProfileModalVisible(false);
-  };
-
-  const openCarDetail = (c: typeof car) => {
-    setCarDetailId(c.id);
-    const interval = getServiceInterval(c);
-    setCustomKm(c.customIntervalKm ? c.customIntervalKm.toString() : "");
-    setCustomMonths(c.customIntervalMonths ? c.customIntervalMonths.toString() : "");
-  };
-
-  const handleSaveInterval = async () => {
-    if (!carDetail) return;
-    const km = customKm.trim() ? parseInt(customKm, 10) : null;
-    const months = customMonths.trim() ? parseInt(customMonths, 10) : null;
-    if (km !== null && (isNaN(km) || km <= 0)) { Alert.alert("Ошибка", "Пробег > 0"); return; }
-    if (months !== null && (isNaN(months) || months <= 0)) { Alert.alert("Ошибка", "Месяцы > 0"); return; }
-    const bothSet = km !== null && months !== null;
-    const noneSet = km === null && months === null;
-    if (!bothSet && !noneSet) {
-      Alert.alert("Ошибка", "Укажите оба значения или оставьте пустыми для сброса");
-      return;
-    }
-    await updateCar({ ...carDetail, customIntervalKm: km, customIntervalMonths: months });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const handleResetInterval = async () => {
-    if (!carDetail) return;
-    setCustomKm("");
-    setCustomMonths("");
-    await updateCar({ ...carDetail, customIntervalKm: null, customIntervalMonths: null });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const handleAddCar = async () => {
@@ -194,7 +159,7 @@ export default function ProfileScreen() {
                 style={({ pressed }) => [styles.carRow, isSelected && styles.carRowSelected, pressed && { opacity: 0.9 }]}
                 onPress={() => {
                   selectCar(c.id);
-                  openCarDetail(c);
+                  setCarDetailId(carDetailId === c.id ? null : c.id);
                 }}
               >
                 {c.photoUri ? (
@@ -237,53 +202,6 @@ export default function ProfileScreen() {
                       >
                         <Ionicons name="trash-outline" size={16} color={Colors.light.danger} />
                         <Text style={[styles.carDetailBtnText, { color: Colors.light.danger }]}>Удалить</Text>
-                      </Pressable>
-                    )}
-                  </View>
-
-                  <Text style={styles.intervalTitle}>Интервал ТО</Text>
-                  <Text style={styles.intervalHint}>
-                    {interval.isCustom
-                      ? `Свой: ${interval.intervalKm.toLocaleString("ru-RU")} км / ${interval.intervalMonths} мес.`
-                      : `По умолчанию (${c.make || "—"}): ${interval.intervalKm.toLocaleString("ru-RU")} км / ${interval.intervalMonths} мес.`}
-                  </Text>
-                  <View style={styles.intervalInputRow}>
-                    <View style={styles.intervalInputWrap}>
-                      <Text style={styles.intervalInputLabel}>Пробег (км)</Text>
-                      <TextInput
-                        style={styles.intervalInput}
-                        value={customKm}
-                        onChangeText={(t) => setCustomKm(t.replace(/[^0-9]/g, ""))}
-                        placeholder={`${interval.intervalKm}`}
-                        placeholderTextColor={Colors.light.tabIconDefault}
-                        keyboardType="numeric"
-                      />
-                    </View>
-                    <View style={styles.intervalInputWrap}>
-                      <Text style={styles.intervalInputLabel}>Месяцы</Text>
-                      <TextInput
-                        style={styles.intervalInput}
-                        value={customMonths}
-                        onChangeText={(t) => setCustomMonths(t.replace(/[^0-9]/g, ""))}
-                        placeholder={`${interval.intervalMonths}`}
-                        placeholderTextColor={Colors.light.tabIconDefault}
-                        keyboardType="numeric"
-                      />
-                    </View>
-                  </View>
-                  <View style={styles.intervalBtnRow}>
-                    <Pressable
-                      style={({ pressed }) => [styles.saveBtn, { flex: 1 }, pressed && { opacity: 0.85 }]}
-                      onPress={handleSaveInterval}
-                    >
-                      <Text style={styles.saveBtnText}>Сохранить</Text>
-                    </Pressable>
-                    {interval.isCustom && (
-                      <Pressable
-                        style={({ pressed }) => [styles.resetBtn, pressed && { opacity: 0.85 }]}
-                        onPress={handleResetInterval}
-                      >
-                        <Text style={styles.resetBtnText}>Сбросить</Text>
                       </Pressable>
                     )}
                   </View>
@@ -457,46 +375,6 @@ const styles = StyleSheet.create({
   },
   carDetailBtnDanger: { borderColor: Colors.light.dangerLight },
   carDetailBtnText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.tint },
-  intervalTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.text, marginBottom: 4 },
-  intervalHint: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: Colors.light.textSecondary,
-    marginBottom: 10,
-    fontStyle: "italic" as const,
-  },
-  intervalInputRow: { flexDirection: "row", gap: 10 },
-  intervalInputWrap: { flex: 1 },
-  intervalInputLabel: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.textSecondary, marginBottom: 4 },
-  intervalInput: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: Colors.light.text,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  intervalBtnRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  saveBtn: {
-    backgroundColor: Colors.light.tint,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  saveBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" },
-  resetBtn: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    backgroundColor: Colors.light.surface,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  resetBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.textSecondary },
   userInfoRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   userAvatar: {
     width: 42,
