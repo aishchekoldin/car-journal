@@ -8,6 +8,7 @@ import {
   Pressable,
   Alert,
   Platform,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,19 +29,17 @@ const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_I
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, car, updateUser, updateCar } = useData();
+  const { user, cars, car, updateUser, updateCar, addCar, deleteCar, selectCar } = useData();
+
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
-  const [saved, setSaved] = useState(false);
 
-  const currentInterval = getServiceInterval(car);
-  const [customKm, setCustomKm] = useState(
-    car.customIntervalKm ? car.customIntervalKm.toString() : ""
-  );
-  const [customMonths, setCustomMonths] = useState(
-    car.customIntervalMonths ? car.customIntervalMonths.toString() : ""
-  );
-  const [intervalSaved, setIntervalSaved] = useState(false);
+  const [carDetailId, setCarDetailId] = useState<string | null>(null);
+  const carDetail = carDetailId ? cars.find((c) => c.id === carDetailId) : null;
+
+  const [customKm, setCustomKm] = useState("");
+  const [customMonths, setCustomMonths] = useState("");
 
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -50,10 +49,7 @@ export default function ProfileScreen() {
     default: GOOGLE_WEB_CLIENT_ID,
   }) || "";
 
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: "com.carjournal.app",
-  });
-
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: "com.carjournal.app" });
   const discovery = AuthSession.useAutoDiscovery("https://accounts.google.com");
 
   const handleGoogleLogin = async () => {
@@ -61,15 +57,10 @@ export default function ProfileScreen() {
       Alert.alert("Ошибка", "Не удалось подключиться к Google. Попробуйте позже.");
       return;
     }
-
     if (!clientId) {
-      Alert.alert(
-        "Настройка Google",
-        "Для авторизации через Google укажите EXPO_PUBLIC_GOOGLE_CLIENT_ID в настройках приложения."
-      );
+      Alert.alert("Настройка Google", "Для авторизации через Google укажите EXPO_PUBLIC_GOOGLE_CLIENT_ID.");
       return;
     }
-
     setGoogleLoading(true);
     try {
       const request = new AuthSession.AuthRequest({
@@ -78,82 +69,97 @@ export default function ProfileScreen() {
         scopes: ["openid", "profile", "email"],
         responseType: AuthSession.ResponseType.Token,
       });
-
       const result = await request.promptAsync(discovery);
-
       if (result.type === "success" && result.authentication?.accessToken) {
-        const userInfoResponse = await fetch(
-          "https://www.googleapis.com/oauth2/v3/userinfo",
-          { headers: { Authorization: `Bearer ${result.authentication.accessToken}` } }
-        );
-        const userInfo = await userInfoResponse.json();
-
-        await updateUser({
-          name: userInfo.name || user.name,
-          email: userInfo.email || user.email,
+        const resp = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${result.authentication.accessToken}` },
         });
-        setName(userInfo.name || user.name);
-        setEmail(userInfo.email || user.email);
-
+        const info = await resp.json();
+        await updateUser({ name: info.name || user.name, email: info.email || user.email });
+        setName(info.name || user.name);
+        setEmail(info.email || user.email);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Успешно", `Вы вошли как ${userInfo.email}`);
+        Alert.alert("Успешно", `Вы вошли как ${info.email}`);
       }
-    } catch (error) {
-      Alert.alert("Ошибка", "Не удалось войти через Google. Попробуйте ещё раз.");
+    } catch {
+      Alert.alert("Ошибка", "Не удалось войти через Google.");
     } finally {
       setGoogleLoading(false);
     }
   };
 
-  const handleSaveUser = async () => {
+  const handleSaveProfile = async () => {
     await updateUser({ name, email });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setProfileModalVisible(false);
+  };
+
+  const openCarDetail = (c: typeof car) => {
+    setCarDetailId(c.id);
+    const interval = getServiceInterval(c);
+    setCustomKm(c.customIntervalKm ? c.customIntervalKm.toString() : "");
+    setCustomMonths(c.customIntervalMonths ? c.customIntervalMonths.toString() : "");
   };
 
   const handleSaveInterval = async () => {
+    if (!carDetail) return;
     const km = customKm.trim() ? parseInt(customKm, 10) : null;
     const months = customMonths.trim() ? parseInt(customMonths, 10) : null;
-
-    if (km !== null && (isNaN(km) || km <= 0)) {
-      Alert.alert("Ошибка", "Пробег должен быть > 0");
-      return;
-    }
-    if (months !== null && (isNaN(months) || months <= 0)) {
-      Alert.alert("Ошибка", "Количество месяцев должно быть > 0");
-      return;
-    }
-
+    if (km !== null && (isNaN(km) || km <= 0)) { Alert.alert("Ошибка", "Пробег > 0"); return; }
+    if (months !== null && (isNaN(months) || months <= 0)) { Alert.alert("Ошибка", "Месяцы > 0"); return; }
     const bothSet = km !== null && months !== null;
     const noneSet = km === null && months === null;
-
     if (!bothSet && !noneSet) {
-      Alert.alert("Ошибка", "Укажите оба значения (пробег и месяцы) или оставьте оба поля пустыми для сброса");
+      Alert.alert("Ошибка", "Укажите оба значения или оставьте пустыми для сброса");
       return;
     }
-
-    await updateCar({
-      ...car,
-      customIntervalKm: km,
-      customIntervalMonths: months,
-    });
+    await updateCar({ ...carDetail, customIntervalKm: km, customIntervalMonths: months });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIntervalSaved(true);
-    setTimeout(() => setIntervalSaved(false), 2000);
   };
 
   const handleResetInterval = async () => {
+    if (!carDetail) return;
     setCustomKm("");
     setCustomMonths("");
-    await updateCar({
-      ...car,
+    await updateCar({ ...carDetail, customIntervalKm: null, customIntervalMonths: null });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleAddCar = async () => {
+    const newCar = await addCar({
+      make: "",
+      model: "",
+      year: "",
+      vin: "",
+      photoUri: null,
+      currency: "\u20BD",
       customIntervalKm: null,
       customIntervalMonths: null,
     });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIntervalSaved(true);
-    setTimeout(() => setIntervalSaved(false), 2000);
+    router.push({ pathname: "/edit-car", params: { carId: newCar.id } });
+  };
+
+  const handleDeleteCar = (carToDelete: typeof car) => {
+    if (cars.length <= 1) {
+      Alert.alert("Ошибка", "Нельзя удалить единственный автомобиль");
+      return;
+    }
+    Alert.alert(
+      "Удалить автомобиль",
+      `Удалить ${carToDelete.make} ${carToDelete.model} и все связанные записи?`,
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Удалить",
+          style: "destructive",
+          onPress: async () => {
+            setCarDetailId(null);
+            await deleteCar(carToDelete.id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
   };
 
   const handleStub = (action: string) => {
@@ -168,123 +174,158 @@ export default function ProfileScreen() {
         paddingBottom: Platform.OS === "web" ? 34 + 90 : 100,
         paddingHorizontal: 20,
       }}
-      contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.title}>Профиль</Text>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Ваши данные</Text>
-        <Text style={styles.label}>Имя</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Ваше имя"
-          placeholderTextColor={Colors.light.tabIconDefault}
-        />
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="your@email.com"
-          placeholderTextColor={Colors.light.tabIconDefault}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <Pressable
-          style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.85 }]}
-          onPress={handleSaveUser}
-        >
-          {saved ? (
-            <Ionicons name="checkmark" size={18} color="#fff" />
-          ) : (
-            <Text style={styles.saveBtnText}>Сохранить</Text>
-          )}
-        </Pressable>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Ваш автомобиль</Text>
-        <Pressable
-          style={({ pressed }) => [styles.carRow, pressed && { opacity: 0.9 }]}
-          onPress={() => router.push("/edit-car")}
-        >
-          {car.photoUri ? (
-            <Image source={{ uri: car.photoUri }} style={styles.carThumb} contentFit="cover" />
-          ) : (
-            <View style={[styles.carThumb, styles.carThumbPlaceholder]}>
-              <Ionicons name="car-sport" size={24} color={Colors.light.tint} />
-            </View>
-          )}
-          <View style={styles.carInfo}>
-            <Text style={styles.carName}>{car.make} {car.model}</Text>
-            <Text style={styles.carSub}>{car.year}{car.vin ? ` \u00B7 ${car.vin}` : ""}</Text>
-            <Text style={styles.carCurrency}>Валюта: {car.currency}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.light.tabIconDefault} />
-        </Pressable>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Интервал ТО</Text>
-        <Text style={styles.intervalHint}>
-          {currentInterval.isCustom
-            ? `Свой интервал: ${currentInterval.intervalKm.toLocaleString("ru-RU")} км / ${currentInterval.intervalMonths} мес.`
-            : `По умолчанию (${car.make}): ${currentInterval.intervalKm.toLocaleString("ru-RU")} км / ${currentInterval.intervalMonths} мес.`}
-        </Text>
-        <Text style={styles.label}>Пробег (км)</Text>
-        <TextInput
-          style={styles.input}
-          value={customKm}
-          onChangeText={(t) => setCustomKm(t.replace(/[^0-9]/g, ""))}
-          placeholder={`напр. ${currentInterval.intervalKm}`}
-          placeholderTextColor={Colors.light.tabIconDefault}
-          keyboardType="numeric"
-        />
-        <Text style={styles.label}>Интервал (мес.)</Text>
-        <TextInput
-          style={styles.input}
-          value={customMonths}
-          onChangeText={(t) => setCustomMonths(t.replace(/[^0-9]/g, ""))}
-          placeholder={`напр. ${currentInterval.intervalMonths}`}
-          placeholderTextColor={Colors.light.tabIconDefault}
-          keyboardType="numeric"
-        />
-        <View style={styles.intervalBtnRow}>
-          <Pressable
-            style={({ pressed }) => [styles.saveBtn, styles.intervalSaveBtn, pressed && { opacity: 0.85 }]}
-            onPress={handleSaveInterval}
-          >
-            {intervalSaved ? (
-              <Ionicons name="checkmark" size={18} color="#fff" />
-            ) : (
-              <Text style={styles.saveBtnText}>Сохранить</Text>
-            )}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Ваши автомобили</Text>
+          <Pressable onPress={handleAddCar} style={({ pressed }) => [styles.addCarBtn, pressed && { opacity: 0.8 }]}>
+            <Ionicons name="add" size={20} color="#fff" />
           </Pressable>
-          {currentInterval.isCustom && (
-            <Pressable
-              style={({ pressed }) => [styles.resetBtn, pressed && { opacity: 0.85 }]}
-              onPress={handleResetInterval}
-            >
-              <Text style={styles.resetBtnText}>Сбросить</Text>
-            </Pressable>
-          )}
         </View>
+        {cars.map((c) => {
+          const interval = getServiceInterval(c);
+          const isSelected = c.id === car.id;
+          return (
+            <View key={c.id}>
+              <Pressable
+                style={({ pressed }) => [styles.carRow, isSelected && styles.carRowSelected, pressed && { opacity: 0.9 }]}
+                onPress={() => {
+                  selectCar(c.id);
+                  openCarDetail(c);
+                }}
+              >
+                {c.photoUri ? (
+                  <Image source={{ uri: c.photoUri }} style={styles.carThumb} contentFit="cover" />
+                ) : (
+                  <View style={[styles.carThumb, styles.carThumbPlaceholder]}>
+                    <Ionicons name="car-sport" size={22} color={Colors.light.tint} />
+                  </View>
+                )}
+                <View style={styles.carInfo}>
+                  <Text style={styles.carName}>
+                    {c.make || "Новый авто"} {c.model}
+                  </Text>
+                  <Text style={styles.carSub}>
+                    {c.year ? c.year : ""}
+                    {c.vin ? ` · ${c.vin}` : ""}
+                  </Text>
+                  <Text style={styles.carInterval}>
+                    ТО: {interval.intervalKm.toLocaleString("ru-RU")} км / {interval.intervalMonths} мес.
+                    {interval.isCustom ? " (свой)" : ""}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
+              </Pressable>
+
+              {carDetailId === c.id && (
+                <View style={styles.carDetailPanel}>
+                  <View style={styles.carDetailBtnRow}>
+                    <Pressable
+                      style={({ pressed }) => [styles.carDetailBtn, pressed && { opacity: 0.85 }]}
+                      onPress={() => router.push({ pathname: "/edit-car", params: { carId: c.id } })}
+                    >
+                      <Ionicons name="create-outline" size={16} color={Colors.light.tint} />
+                      <Text style={styles.carDetailBtnText}>Редактировать</Text>
+                    </Pressable>
+                    {cars.length > 1 && (
+                      <Pressable
+                        style={({ pressed }) => [styles.carDetailBtn, styles.carDetailBtnDanger, pressed && { opacity: 0.85 }]}
+                        onPress={() => handleDeleteCar(c)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={Colors.light.danger} />
+                        <Text style={[styles.carDetailBtnText, { color: Colors.light.danger }]}>Удалить</Text>
+                      </Pressable>
+                    )}
+                  </View>
+
+                  <Text style={styles.intervalTitle}>Интервал ТО</Text>
+                  <Text style={styles.intervalHint}>
+                    {interval.isCustom
+                      ? `Свой: ${interval.intervalKm.toLocaleString("ru-RU")} км / ${interval.intervalMonths} мес.`
+                      : `По умолчанию (${c.make || "—"}): ${interval.intervalKm.toLocaleString("ru-RU")} км / ${interval.intervalMonths} мес.`}
+                  </Text>
+                  <View style={styles.intervalInputRow}>
+                    <View style={styles.intervalInputWrap}>
+                      <Text style={styles.intervalInputLabel}>Пробег (км)</Text>
+                      <TextInput
+                        style={styles.intervalInput}
+                        value={customKm}
+                        onChangeText={(t) => setCustomKm(t.replace(/[^0-9]/g, ""))}
+                        placeholder={`${interval.intervalKm}`}
+                        placeholderTextColor={Colors.light.tabIconDefault}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                    <View style={styles.intervalInputWrap}>
+                      <Text style={styles.intervalInputLabel}>Месяцы</Text>
+                      <TextInput
+                        style={styles.intervalInput}
+                        value={customMonths}
+                        onChangeText={(t) => setCustomMonths(t.replace(/[^0-9]/g, ""))}
+                        placeholder={`${interval.intervalMonths}`}
+                        placeholderTextColor={Colors.light.tabIconDefault}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.intervalBtnRow}>
+                    <Pressable
+                      style={({ pressed }) => [styles.saveBtn, { flex: 1 }, pressed && { opacity: 0.85 }]}
+                      onPress={handleSaveInterval}
+                    >
+                      <Text style={styles.saveBtnText}>Сохранить</Text>
+                    </Pressable>
+                    {interval.isCustom && (
+                      <Pressable
+                        style={({ pressed }) => [styles.resetBtn, pressed && { opacity: 0.85 }]}
+                        onPress={handleResetInterval}
+                      >
+                        <Text style={styles.resetBtnText}>Сбросить</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              )}
+            </View>
+          );
+        })}
       </View>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Аккаунт</Text>
+        {user.name || user.email ? (
+          <View style={styles.userInfoRow}>
+            <View style={styles.userAvatar}>
+              <Ionicons name="person" size={22} color={Colors.light.tint} />
+            </View>
+            <View style={styles.userInfoText}>
+              {user.name ? <Text style={styles.userName}>{user.name}</Text> : null}
+              {user.email ? <Text style={styles.userEmail}>{user.email}</Text> : null}
+            </View>
+          </View>
+        ) : null}
+        <Pressable
+          style={({ pressed }) => [styles.editProfileBtn, pressed && { opacity: 0.85 }]}
+          onPress={() => {
+            setName(user.name);
+            setEmail(user.email);
+            setProfileModalVisible(true);
+          }}
+        >
+          <Ionicons name="create-outline" size={18} color={Colors.light.tint} />
+          <Text style={styles.editProfileBtnText}>Редактировать профиль</Text>
+        </Pressable>
+        <View style={styles.divider} />
         <Pressable
           style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.85 }]}
           onPress={handleGoogleLogin}
           disabled={googleLoading}
         >
-          <Ionicons name="logo-google" size={20} color="#fff" />
-          <Text style={styles.googleBtnText}>
-            {googleLoading ? "Вход..." : "Войти через Google"}
-          </Text>
+          <Ionicons name="logo-google" size={18} color="#fff" />
+          <Text style={styles.googleBtnText}>{googleLoading ? "Вход..." : "Войти через Google"}</Text>
         </Pressable>
         <View style={styles.divider} />
         <Pressable style={styles.actionRow} onPress={() => handleStub("Сменить пароль")}>
@@ -305,6 +346,46 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
         </Pressable>
       </View>
+
+      <Modal visible={profileModalVisible} transparent animationType="slide">
+        <Pressable style={styles.modalOverlay} onPress={() => setProfileModalVisible(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Редактировать профиль</Text>
+            <Text style={styles.label}>Имя</Text>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Ваше имя"
+              placeholderTextColor={Colors.light.tabIconDefault}
+            />
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="your@email.com"
+              placeholderTextColor={Colors.light.tabIconDefault}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <View style={styles.modalBtnRow}>
+              <Pressable
+                style={({ pressed }) => [styles.modalCancelBtn, pressed && { opacity: 0.85 }]}
+                onPress={() => setProfileModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Отмена</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.saveBtn, { flex: 1 }, pressed && { opacity: 0.85 }]}
+                onPress={handleSaveProfile}
+              >
+                <Text style={styles.saveBtnText}>Сохранить</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -323,69 +404,134 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   sectionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 16, color: Colors.light.text, marginBottom: 12 },
-  label: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.textSecondary, marginBottom: 4 },
-  input: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: "Inter_400Regular",
-    fontSize: 15,
-    color: Colors.light.text,
+  addCarBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: Colors.light.tint,
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
+  },
+  carRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  carRowSelected: { backgroundColor: Colors.light.tintLight },
+  carThumb: { width: 48, height: 48, borderRadius: 12 },
+  carThumbPlaceholder: {
+    backgroundColor: Colors.light.background,
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
+  carInfo: { flex: 1, marginLeft: 12 },
+  carName: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.light.text },
+  carSub: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.textSecondary, marginTop: 1 },
+  carInterval: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.tabIconDefault, marginTop: 1 },
+  carDetailPanel: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  carDetailBtnRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  carDetailBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  carDetailBtnDanger: { borderColor: Colors.light.dangerLight },
+  carDetailBtnText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.tint },
+  intervalTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.text, marginBottom: 4 },
+  intervalHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    marginBottom: 10,
+    fontStyle: "italic" as const,
+  },
+  intervalInputRow: { flexDirection: "row", gap: 10 },
+  intervalInputWrap: { flex: 1 },
+  intervalInputLabel: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.textSecondary, marginBottom: 4 },
+  intervalInput: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  intervalBtnRow: { flexDirection: "row", gap: 8, marginTop: 10 },
   saveBtn: {
     backgroundColor: Colors.light.tint,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
-    marginTop: 4,
   },
-  saveBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: "#fff" },
-  intervalHint: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-    marginBottom: 12,
-    fontStyle: "italic" as const,
-  },
-  intervalBtnRow: { flexDirection: "row", gap: 10, marginTop: 4 },
-  intervalSaveBtn: { flex: 1 },
+  saveBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" },
   resetBtn: {
     flex: 1,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
-    backgroundColor: Colors.light.background,
+    backgroundColor: Colors.light.surface,
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
-  resetBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.light.textSecondary },
-  carRow: { flexDirection: "row", alignItems: "center" },
-  carThumb: { width: 56, height: 56, borderRadius: 14 },
-  carThumbPlaceholder: {
+  resetBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.textSecondary },
+  userInfoRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  userAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Colors.light.tintLight,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
-  carInfo: { flex: 1, marginLeft: 12 },
-  carName: { fontFamily: "Inter_600SemiBold", fontSize: 16, color: Colors.light.text },
-  carSub: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary, marginTop: 2 },
-  carCurrency: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.textSecondary, marginTop: 1 },
+  userInfoText: { flex: 1 },
+  userName: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.light.text },
+  userEmail: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary, marginTop: 1 },
+  editProfileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.light.tintLight,
+    marginBottom: 12,
+  },
+  editProfileBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.tint },
   googleBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
     backgroundColor: "#EA4335",
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     marginBottom: 12,
   },
-  googleBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: "#fff" },
+  googleBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" },
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -394,4 +540,39 @@ const styles = StyleSheet.create({
   },
   actionText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 15, color: Colors.light.text },
   divider: { height: 1, backgroundColor: Colors.light.border },
+  label: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.textSecondary, marginBottom: 4, marginTop: 12 },
+  input: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalTitle: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: Colors.light.text, textAlign: "center" as const },
+  modalBtnRow: { flexDirection: "row", gap: 10, marginTop: 20 },
+  modalCancelBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: Colors.light.background,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  modalCancelText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.textSecondary },
 });

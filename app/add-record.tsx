@@ -28,6 +28,7 @@ const EVENT_LABELS: Record<EventType, string> = {
 export default function AddRecordScreen() {
   const insets = useSafeAreaInsets();
   const { car, addRecord } = useData();
+  const carId = car.id;
 
   const [mileage, setMileage] = useState("");
   const [eventType, setEventType] = useState<EventType>("planned");
@@ -109,6 +110,7 @@ export default function AddRecordScreen() {
 
     await addRecord({
       id: generateId(),
+      carId,
       date: isFuture ? "" : date,
       mileageKm: mileageNum,
       eventType,

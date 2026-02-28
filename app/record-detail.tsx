@@ -32,7 +32,6 @@ export default function RecordDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { records, deleteRecord } = useData();
-
   const record = records.find((r) => r.id === id);
 
   if (!record) {

@@ -75,7 +75,7 @@ type FilterType = "all" | EventType;
 
 export default function JournalScreen() {
   const insets = useSafeAreaInsets();
-  const { records } = useData();
+  const { carRecords: records } = useData();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
 

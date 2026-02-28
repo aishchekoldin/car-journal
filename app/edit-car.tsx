@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
@@ -22,14 +22,18 @@ const CURRENCIES = ["\u20BD", "\u20AC", "$"];
 
 export default function EditCarScreen() {
   const insets = useSafeAreaInsets();
-  const { car, updateCar } = useData();
+  const { carId } = useLocalSearchParams<{ carId?: string }>();
+  const { cars, car: selectedCar, updateCar } = useData();
 
-  const [make, setMake] = useState(car.make);
-  const [model, setModel] = useState(car.model);
-  const [year, setYear] = useState(car.year);
-  const [vin, setVin] = useState(car.vin);
-  const [photoUri, setPhotoUri] = useState(car.photoUri);
-  const [currency, setCurrency] = useState(car.currency);
+  const targetCar = carId ? cars.find((c) => c.id === carId) : selectedCar;
+  const carToEdit = targetCar || selectedCar;
+
+  const [make, setMake] = useState(carToEdit.make);
+  const [model, setModel] = useState(carToEdit.model);
+  const [year, setYear] = useState(carToEdit.year);
+  const [vin, setVin] = useState(carToEdit.vin);
+  const [photoUri, setPhotoUri] = useState(carToEdit.photoUri);
+  const [currency, setCurrency] = useState(carToEdit.currency);
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -44,7 +48,15 @@ export default function EditCarScreen() {
   };
 
   const handleSave = async () => {
-    await updateCar({ make, model, year, vin, photoUri, currency });
+    await updateCar({
+      ...carToEdit,
+      make,
+      model,
+      year,
+      vin,
+      photoUri,
+      currency,
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };

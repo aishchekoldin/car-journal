@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,6 +7,8 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -41,15 +43,16 @@ function getBadgeStyle(eventType: string) {
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { records, car, isLoading } = useData();
+  const { carRecords, cars, car, selectCar, isLoading } = useData();
+  const [carPickerVisible, setCarPickerVisible] = useState(false);
 
-  const nonFutureRecords = records.filter((r) => r.eventType !== "future");
+  const nonFutureRecords = carRecords.filter((r) => r.eventType !== "future");
   const sorted = [...nonFutureRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const lastRecord = sorted.length > 0 ? sorted[0] : null;
   const lastMileage = lastRecord ? lastRecord.mileageKm : null;
   const avgMonth = getAvgPerMonth(nonFutureRecords);
   const avgYear = getAvgPerYear(nonFutureRecords);
-  const nextService = calcNextService(records, car);
+  const nextService = calcNextService(carRecords, car);
   const { intervalKm, isCustom } = getServiceInterval(car);
 
   if (isLoading) {
@@ -72,6 +75,17 @@ export default function DashboardScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.greeting}>Журнал авто</Text>
+
+      {cars.length > 1 && (
+        <Pressable
+          style={({ pressed }) => [styles.carSwitcher, pressed && { opacity: 0.85 }]}
+          onPress={() => setCarPickerVisible(true)}
+        >
+          <Ionicons name="car-sport" size={18} color={Colors.light.tint} />
+          <Text style={styles.carSwitcherText}>{car.make} {car.model}</Text>
+          <Ionicons name="chevron-down" size={16} color={Colors.light.tabIconDefault} />
+        </Pressable>
+      )}
 
       <View style={styles.heroCard}>
         {car.photoUri ? (
@@ -212,6 +226,39 @@ export default function DashboardScreen() {
           </Text>
         </View>
       </View>
+
+      <Modal visible={carPickerVisible} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setCarPickerVisible(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Выберите автомобиль</Text>
+            <FlatList
+              data={cars}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[styles.modalCarRow, item.id === car.id && styles.modalCarRowActive]}
+                  onPress={() => {
+                    selectCar(item.id);
+                    setCarPickerVisible(false);
+                  }}
+                >
+                  <Ionicons
+                    name="car-sport"
+                    size={20}
+                    color={item.id === car.id ? Colors.light.tint : Colors.light.tabIconDefault}
+                  />
+                  <Text style={[styles.modalCarName, item.id === car.id && { color: Colors.light.tint }]}>
+                    {item.make} {item.model}
+                  </Text>
+                  {item.id === car.id && (
+                    <Ionicons name="checkmark" size={20} color={Colors.light.tint} />
+                  )}
+                </Pressable>
+              )}
+            />
+          </View>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -223,8 +270,22 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 28,
     color: Colors.light.text,
-    marginBottom: 20,
+    marginBottom: 16,
   },
+  carSwitcher: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  carSwitcherText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.text },
   heroCard: {
     borderRadius: 20,
     overflow: "hidden",
@@ -382,4 +443,29 @@ const styles = StyleSheet.create({
   },
   kpiLabel: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.textSecondary, marginTop: 8 },
   kpiValue: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.light.text, marginTop: 4, textAlign: "center" as const },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  modalContent: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 20,
+    padding: 20,
+    width: "100%",
+    maxHeight: 400,
+  },
+  modalTitle: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: Colors.light.text, marginBottom: 16, textAlign: "center" as const },
+  modalCarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  modalCarRowActive: { backgroundColor: Colors.light.tintLight },
+  modalCarName: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 15, color: Colors.light.text },
 });

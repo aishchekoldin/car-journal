@@ -8,6 +8,7 @@ export type EventType = "planned" | "unplanned" | "refueling" | "future";
 
 export interface MaintenanceRecord {
   id: string;
+  carId: string;
   date: string;
   mileageKm: number;
   eventType: EventType;
@@ -18,6 +19,7 @@ export interface MaintenanceRecord {
 }
 
 export interface CarProfile {
+  id: string;
   make: string;
   model: string;
   year: string;

@@ -1,28 +1,44 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
   View,
   ScrollView,
+  Pressable,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 import { useData } from "@/lib/DataContext";
-import { getMonthlyTotals, getAvgPerMonth, getAvgPerYear, getPlannedTotal, getUnplannedTotal } from "@/lib/stats";
+import {
+  getMonthlyTotals,
+  getAvgPerMonth,
+  getAvgPerYear,
+  getPlannedTotal,
+  getUnplannedTotal,
+  getRefuelingTotal,
+  getTotalSpent,
+  getCostPerKm,
+  getRecordCount,
+} from "@/lib/stats";
+
+type Period = "3m" | "6m" | "12m" | "all";
 
 function formatCost(value: number, currency: string): string {
   return `${value.toLocaleString("ru-RU")} ${currency}`;
 }
 
-function getRefuelingTotal(records: { eventType: string; totalCost: number }[]): number {
-  return records.filter((r) => r.eventType === "refueling").reduce((s, r) => s + r.totalCost, 0);
+function filterByPeriod(records: { date: string; eventType: string }[], period: Period) {
+  if (period === "all") return records;
+  const now = new Date();
+  const months = period === "3m" ? 3 : period === "6m" ? 6 : 12;
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
+  return records.filter((r) => r.date && new Date(r.date) >= cutoff);
 }
 
 function BarChart({ data }: { data: { month: string; total: number }[] }) {
   const maxVal = Math.max(...data.map((d) => d.total), 1);
-
   return (
     <View style={chartStyles.container}>
       <View style={chartStyles.barsRow}>
@@ -51,17 +67,45 @@ function BarChart({ data }: { data: { month: string; total: number }[] }) {
   );
 }
 
+const PERIODS: { key: Period; label: string }[] = [
+  { key: "3m", label: "3 мес." },
+  { key: "6m", label: "6 мес." },
+  { key: "12m", label: "12 мес." },
+  { key: "all", label: "Всё время" },
+];
+
 export default function StatsScreen() {
   const insets = useSafeAreaInsets();
-  const { records, car } = useData();
+  const { carRecords, car } = useData();
+  const [period, setPeriod] = useState<Period>("6m");
 
-  const costRecords = records.filter((r) => r.eventType !== "future");
-  const monthlyData = getMonthlyTotals(costRecords, 6);
+  const costRecords = useMemo(() => {
+    const nonFuture = carRecords.filter((r) => r.eventType !== "future");
+    return filterByPeriod(nonFuture, period) as typeof nonFuture;
+  }, [carRecords, period]);
+
+  const chartMonths = useMemo(() => {
+    if (period === "3m") return 3;
+    if (period === "6m") return 6;
+    if (period !== "all") return 12;
+    if (costRecords.length === 0) return 12;
+    const dates = costRecords.filter((r) => r.date).map((r) => new Date(r.date).getTime());
+    if (dates.length === 0) return 12;
+    const oldest = new Date(Math.min(...dates));
+    const now = new Date();
+    const span = (now.getFullYear() - oldest.getFullYear()) * 12 + (now.getMonth() - oldest.getMonth()) + 1;
+    return Math.max(span, 3);
+  }, [period, costRecords]);
+  const monthlyData = getMonthlyTotals(costRecords, chartMonths);
   const avgMonth = getAvgPerMonth(costRecords);
   const avgYear = getAvgPerYear(costRecords);
   const plannedTotal = getPlannedTotal(costRecords);
   const unplannedTotal = getUnplannedTotal(costRecords);
   const refuelingTotal = getRefuelingTotal(costRecords);
+  const totalSpent = getTotalSpent(costRecords);
+  const costPerKm = getCostPerKm(costRecords);
+  const recordCount = getRecordCount(costRecords);
+
   const grandTotal = plannedTotal + unplannedTotal + refuelingTotal;
   const plannedPct = grandTotal > 0 ? Math.round((plannedTotal / grandTotal) * 100) : 0;
   const unplannedPct = grandTotal > 0 ? Math.round((unplannedTotal / grandTotal) * 100) : 0;
@@ -82,6 +126,20 @@ export default function StatsScreen() {
     >
       <Text style={styles.title}>Статистика</Text>
 
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodScroll} contentContainerStyle={styles.periodRow}>
+        {PERIODS.map((p) => (
+          <Pressable
+            key={p.key}
+            style={[styles.periodChip, period === p.key && styles.periodChipActive]}
+            onPress={() => setPeriod(p.key)}
+          >
+            <Text style={[styles.periodChipText, period === p.key && styles.periodChipTextActive]}>
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
       {!hasData ? (
         <View style={styles.emptyWrap}>
           <Ionicons name="bar-chart-outline" size={48} color={Colors.light.tabIconDefault} />
@@ -90,8 +148,18 @@ export default function StatsScreen() {
         </View>
       ) : (
         <>
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryCard, styles.summaryCardPrimary]}>
+              <Text style={styles.summaryLabel}>Всего потрачено</Text>
+              <Text style={styles.summaryValueLarge}>{formatCost(totalSpent, car.currency)}</Text>
+              <Text style={styles.summaryNote}>{recordCount} записей</Text>
+            </View>
+          </View>
+
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Расходы (последние 6 мес.)</Text>
+            <Text style={styles.cardTitle}>
+              Расходы ({period === "all" ? "всё время" : `последние ${chartMonths} мес.`})
+            </Text>
             <BarChart data={monthlyData} />
           </View>
 
@@ -111,6 +179,25 @@ export default function StatsScreen() {
               <Text style={styles.kpiValue}>{formatCost(avgYear, car.currency)}</Text>
             </View>
           </View>
+
+          {costPerKm !== null && (
+            <View style={styles.kpiRow}>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIcon, { backgroundColor: Colors.light.refuelingBg }]}>
+                  <Ionicons name="speedometer-outline" size={20} color={Colors.light.refueling} />
+                </View>
+                <Text style={styles.kpiLabel}>Стоимость / км</Text>
+                <Text style={styles.kpiValue}>{costPerKm.toFixed(2)} {car.currency}</Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIcon, { backgroundColor: Colors.light.futureBg }]}>
+                  <Ionicons name="document-text-outline" size={20} color={Colors.light.future} />
+                </View>
+                <Text style={styles.kpiLabel}>Записей</Text>
+                <Text style={styles.kpiValue}>{recordCount}</Text>
+              </View>
+            </View>
+          )}
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>По категориям</Text>
@@ -160,7 +247,40 @@ const chartStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
-  title: { fontFamily: "Inter_700Bold", fontSize: 28, color: Colors.light.text, marginBottom: 20 },
+  title: { fontFamily: "Inter_700Bold", fontSize: 28, color: Colors.light.text, marginBottom: 12 },
+  periodScroll: { flexGrow: 0, marginBottom: 16 },
+  periodRow: { gap: 8 },
+  periodChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  periodChipActive: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
+  },
+  periodChipText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.textSecondary },
+  periodChipTextActive: { color: "#fff" },
+  summaryRow: { marginBottom: 16 },
+  summaryCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: Colors.light.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  summaryCardPrimary: {
+    backgroundColor: Colors.light.tint,
+  },
+  summaryLabel: { fontFamily: "Inter_500Medium", fontSize: 14, color: "rgba(255,255,255,0.8)" },
+  summaryValueLarge: { fontFamily: "Inter_700Bold", fontSize: 28, color: "#fff", marginTop: 4 },
+  summaryNote: { fontFamily: "Inter_400Regular", fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 4 },
   card: {
     backgroundColor: Colors.light.surface,
     borderRadius: 16,

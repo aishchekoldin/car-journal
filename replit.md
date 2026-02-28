@@ -15,8 +15,8 @@ Preferred communication style: Simple, everyday language.
 - **Navigation**: Expo Router (file-based routing) with bottom tabs and stack navigation
   - Tab screens: `app/(tabs)/` — index (dashboard), journal, stats, profile
   - Modal/stack screens: `app/add-record.tsx`, `app/edit-car.tsx`, `app/record-detail.tsx`
-- **State Management**: React Context (`lib/DataContext.tsx`) wrapping the entire app, providing CRUD operations for records, car profile, and user profile
-- **Data Persistence**: AsyncStorage (`lib/storage.ts`) — currently the primary data store for all app data (records, car profile, user profile). This is a local-only solution; not yet connected to the backend API.
+- **State Management**: React Context (`lib/DataContext.tsx`) wrapping the entire app, providing CRUD operations for records, **multiple cars**, and user profile. Exposes `cars[]`, `car` (active selected), `carRecords` (filtered by active car), `addCar`, `updateCar`, `deleteCar`, `selectCar`.
+- **Data Persistence**: AsyncStorage (`lib/storage.ts`) — stores cars array, selected car ID, records, and user profile. Migrates legacy single-car data. Not yet connected to the backend API.
 - **Styling**: Custom StyleSheet-based styling with a centralized color system (`constants/colors.ts`). Primary color is blue (#2563EB). Uses Inter font family via `@expo-google-fonts/inter`.
 - **Key Libraries**: 
   - `react-native-gesture-handler`, `react-native-reanimated` for gestures/animations
@@ -68,8 +68,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Models (Client-Side)
 Defined in `lib/types.ts`:
-- **MaintenanceRecord**: id, date, mileageKm, eventType (planned/unplanned/refueling/future), title, items (array of name+cost), totalCost, currency
-- **CarProfile**: make, model, year, VIN, photoUri, currency, customIntervalKm, customIntervalMonths
+- **MaintenanceRecord**: id, **carId**, date, mileageKm, eventType (planned/unplanned/refueling/future), title, items (array of name+cost), totalCost, currency
+- **CarProfile**: **id**, make, model, year, VIN, photoUri, currency, customIntervalKm, customIntervalMonths
 - **UserProfile**: name, email
 - **ServiceInterval**: make, models, intervalKm, intervalMonths — used for service schedule predictions
 
@@ -84,7 +84,7 @@ Defined in `lib/types.ts`:
 - The mobile frontend still stores data locally via AsyncStorage — not yet wired to the API. Future step: connect frontend DataContext to backend API via React Query.
 - **Service intervals** (`lib/service-intervals.ts` client-side + `service_intervals` DB table) contain 30+ car makes with recommended maintenance intervals. `getServiceInterval(car: CarProfile)` checks custom interval first, then falls back to brand defaults.
 - **Custom service intervals** can be set per car (km and months) in the Profile screen, saved to `CarProfile.customIntervalKm` and `CarProfile.customIntervalMonths`.
-- **Statistics** (`lib/stats.ts`) compute monthly totals, averages, and planned vs unplanned breakdowns — "future" records are excluded.
+- **Statistics** (`lib/stats.ts`) compute monthly totals, averages, planned vs unplanned breakdowns, cost per km, yearly totals — "future" records are excluded. Stats screen has time-period filters (3m/6m/12m/all). `getAvgPerYear` uses actual 12-month rolling periods.
 - The app uses Russian locale formatting (dates, numbers) and Ruble (₽) currency, but currency is configurable per car profile.
 - **Google Auth**: Uses `expo-auth-session` with platform-specific client IDs (`EXPO_PUBLIC_GOOGLE_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`). Backend has `/api/auth/google` endpoint for user upsert by googleId.
 
