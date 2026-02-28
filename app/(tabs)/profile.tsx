@@ -29,13 +29,11 @@ const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_I
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, cars, car, updateUser, addCar, deleteCar, selectCar } = useData();
+  const { user, cars, car, updateUser, addCar, selectCar } = useData();
 
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
-
-  const [carDetailId, setCarDetailId] = useState<string | null>(null);
 
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -104,29 +102,6 @@ export default function ProfileScreen() {
     router.push({ pathname: "/edit-car", params: { carId: newCar.id } });
   };
 
-  const handleDeleteCar = (carToDelete: typeof car) => {
-    if (cars.length <= 1) {
-      Alert.alert("Ошибка", "Нельзя удалить единственный автомобиль");
-      return;
-    }
-    Alert.alert(
-      "Удалить автомобиль",
-      `Удалить ${carToDelete.make} ${carToDelete.model} и все связанные записи?`,
-      [
-        { text: "Отмена", style: "cancel" },
-        {
-          text: "Удалить",
-          style: "destructive",
-          onPress: async () => {
-            setCarDetailId(null);
-            await deleteCar(carToDelete.id);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]
-    );
-  };
-
   const handleStub = (action: string) => {
     Alert.alert(action, "Эта функция будет доступна в будущем обновлении.");
   };
@@ -154,60 +129,36 @@ export default function ProfileScreen() {
           const interval = getServiceInterval(c);
           const isSelected = c.id === car.id;
           return (
-            <View key={c.id}>
-              <Pressable
-                style={({ pressed }) => [styles.carRow, isSelected && styles.carRowSelected, pressed && { opacity: 0.9 }]}
-                onPress={() => {
-                  selectCar(c.id);
-                  setCarDetailId(carDetailId === c.id ? null : c.id);
-                }}
-              >
-                {c.photoUri ? (
-                  <Image source={{ uri: c.photoUri }} style={styles.carThumb} contentFit="cover" />
-                ) : (
-                  <View style={[styles.carThumb, styles.carThumbPlaceholder]}>
-                    <Ionicons name="car-sport" size={22} color={Colors.light.tint} />
-                  </View>
-                )}
-                <View style={styles.carInfo}>
-                  <Text style={styles.carName}>
-                    {c.make || "Новый авто"} {c.model}
-                  </Text>
-                  <Text style={styles.carSub}>
-                    {c.year ? c.year : ""}
-                    {c.vin ? ` · ${c.vin}` : ""}
-                  </Text>
-                  <Text style={styles.carInterval}>
-                    ТО: {interval.intervalKm.toLocaleString("ru-RU")} км / {interval.intervalMonths} мес.
-                    {interval.isCustom ? " (свой)" : ""}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
-              </Pressable>
-
-              {carDetailId === c.id && (
-                <View style={styles.carDetailPanel}>
-                  <View style={styles.carDetailBtnRow}>
-                    <Pressable
-                      style={({ pressed }) => [styles.carDetailBtn, pressed && { opacity: 0.85 }]}
-                      onPress={() => router.push({ pathname: "/edit-car", params: { carId: c.id } })}
-                    >
-                      <Ionicons name="create-outline" size={16} color={Colors.light.tint} />
-                      <Text style={styles.carDetailBtnText}>Редактировать</Text>
-                    </Pressable>
-                    {cars.length > 1 && (
-                      <Pressable
-                        style={({ pressed }) => [styles.carDetailBtn, styles.carDetailBtnDanger, pressed && { opacity: 0.85 }]}
-                        onPress={() => handleDeleteCar(c)}
-                      >
-                        <Ionicons name="trash-outline" size={16} color={Colors.light.danger} />
-                        <Text style={[styles.carDetailBtnText, { color: Colors.light.danger }]}>Удалить</Text>
-                      </Pressable>
-                    )}
-                  </View>
+            <Pressable
+              key={c.id}
+              style={({ pressed }) => [styles.carRow, isSelected && styles.carRowSelected, pressed && { opacity: 0.9 }]}
+              onPress={() => {
+                selectCar(c.id);
+                router.push({ pathname: "/edit-car", params: { carId: c.id } });
+              }}
+            >
+              {c.photoUri ? (
+                <Image source={{ uri: c.photoUri }} style={styles.carThumb} contentFit="cover" />
+              ) : (
+                <View style={[styles.carThumb, styles.carThumbPlaceholder]}>
+                  <Ionicons name="car-sport" size={22} color={Colors.light.tint} />
                 </View>
               )}
-            </View>
+              <View style={styles.carInfo}>
+                <Text style={styles.carName}>
+                  {c.make || "Новый авто"} {c.model}
+                </Text>
+                <Text style={styles.carSub}>
+                  {c.year ? c.year : ""}
+                  {c.vin ? ` · ${c.vin}` : ""}
+                </Text>
+                <Text style={styles.carInterval}>
+                  ТО: {interval.intervalKm.toLocaleString("ru-RU")} км / {interval.intervalMonths} мес.
+                  {interval.isCustom ? " (свой)" : ""}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.light.tabIconDefault} />
+            </Pressable>
           );
         })}
       </View>
@@ -354,27 +305,6 @@ const styles = StyleSheet.create({
   carName: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.light.text },
   carSub: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.textSecondary, marginTop: 1 },
   carInterval: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.tabIconDefault, marginTop: 1 },
-  carDetailPanel: {
-    backgroundColor: Colors.light.background,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  carDetailBtnRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  carDetailBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: Colors.light.surface,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  carDetailBtnDanger: { borderColor: Colors.light.dangerLight },
-  carDetailBtnText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.tint },
   userInfoRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   userAvatar: {
     width: 42,

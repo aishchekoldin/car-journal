@@ -101,11 +101,17 @@ export default function StatsScreen() {
   const { carRecords, car } = useData();
   const [period, setPeriod] = useState<Period>("6m");
   const [expandedCategory, setExpandedCategory] = useState<EventType | null>(null);
+  const [chartCategory, setChartCategory] = useState<"all" | EventType>("all");
 
   const costRecords = useMemo(() => {
     const nonFuture = carRecords.filter((r) => r.eventType !== "future");
     return filterByPeriod(nonFuture, period) as typeof nonFuture;
   }, [carRecords, period]);
+
+  const chartRecords = useMemo(() => {
+    if (chartCategory === "all") return costRecords;
+    return costRecords.filter((r) => r.eventType === chartCategory);
+  }, [costRecords, chartCategory]);
 
   const chartMonths = useMemo(() => {
     if (period === "3m") return 3;
@@ -119,7 +125,7 @@ export default function StatsScreen() {
     const span = (now.getFullYear() - oldest.getFullYear()) * 12 + (now.getMonth() - oldest.getMonth()) + 1;
     return Math.max(span, 3);
   }, [period, costRecords]);
-  const monthlyData = getMonthlyTotals(costRecords, chartMonths);
+  const monthlyData = getMonthlyTotals(chartRecords, chartMonths);
   const avgMonth = getAvgPerMonth(costRecords);
   const avgYear = getAvgPerYear(costRecords);
   const plannedTotal = getPlannedTotal(costRecords);
@@ -171,18 +177,27 @@ export default function StatsScreen() {
         </View>
       ) : (
         <>
-          <View style={styles.summaryRow}>
-            <View style={[styles.summaryCard, styles.summaryCardPrimary]}>
-              <Text style={styles.summaryLabel}>Всего потрачено</Text>
-              <Text style={styles.summaryValueLarge}>{formatCost(totalSpent, car.currency)}</Text>
-              <Text style={styles.summaryNote}>{recordCount} записей</Text>
-            </View>
-          </View>
-
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
               Расходы ({period === "all" ? "всё время" : `последние ${chartMonths} мес.`})
             </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartFilterScroll} contentContainerStyle={styles.chartFilterRow}>
+              {[{ key: "all" as const, label: "Все" }, ...CATEGORIES].map((cat) => {
+                const isActive = chartCategory === cat.key;
+                const chipColor = cat.key === "all" ? Colors.light.tint : (cat as CategoryInfo).color;
+                return (
+                  <Pressable
+                    key={cat.key}
+                    style={[styles.chartFilterChip, isActive && { backgroundColor: chipColor, borderColor: chipColor }]}
+                    onPress={() => setChartCategory(cat.key)}
+                  >
+                    <Text style={[styles.chartFilterChipText, isActive && { color: "#fff" }]}>
+                      {cat.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             <BarChart data={monthlyData} />
           </View>
 
@@ -300,6 +315,14 @@ export default function StatsScreen() {
               );
             })}
           </View>
+
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryCard, styles.summaryCardPrimary]}>
+              <Text style={styles.summaryLabel}>Всего потрачено</Text>
+              <Text style={styles.summaryValueLarge}>{formatCost(totalSpent, car.currency)}</Text>
+              <Text style={styles.summaryNote}>{recordCount} записей</Text>
+            </View>
+          </View>
         </>
       )}
     </ScrollView>
@@ -378,6 +401,17 @@ const styles = StyleSheet.create({
   kpiIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center", marginBottom: 8 },
   kpiLabel: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.textSecondary },
   kpiValue: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.light.text, marginTop: 4 },
+  chartFilterScroll: { marginTop: 12, marginBottom: 4 },
+  chartFilterRow: { gap: 6 },
+  chartFilterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  chartFilterChipText: { fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.light.textSecondary },
   splitBar: { flexDirection: "row", height: 12, borderRadius: 6, overflow: "hidden", marginTop: 16, marginBottom: 16 },
   splitSegment: { height: 12 },
   categoryRow: {

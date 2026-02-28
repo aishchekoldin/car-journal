@@ -8,6 +8,7 @@ import {
   Pressable,
   Platform,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,7 +25,7 @@ const CURRENCIES = ["\u20BD", "\u20AC", "$"];
 export default function EditCarScreen() {
   const insets = useSafeAreaInsets();
   const { carId } = useLocalSearchParams<{ carId?: string }>();
-  const { cars, car: selectedCar, updateCar } = useData();
+  const { cars, car: selectedCar, updateCar, deleteCar } = useData();
 
   const targetCar = carId ? cars.find((c) => c.id === carId) : selectedCar;
   const carToEdit = targetCar || selectedCar;
@@ -53,6 +54,29 @@ export default function EditCarScreen() {
     if (!result.canceled && result.assets.length > 0) {
       setPhotoUri(result.assets[0].uri);
     }
+  };
+
+  const handleDeleteCar = () => {
+    if (cars.length <= 1) {
+      Alert.alert("Ошибка", "Нельзя удалить единственный автомобиль");
+      return;
+    }
+    Alert.alert(
+      "Удалить автомобиль",
+      `Удалить ${carToEdit.make} ${carToEdit.model} и все связанные записи?`,
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Удалить",
+          style: "destructive",
+          onPress: async () => {
+            await deleteCar(carToEdit.id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.back();
+          },
+        },
+      ]
+    );
   };
 
   const handleSave = async () => {
@@ -212,6 +236,16 @@ export default function EditCarScreen() {
           >
             <Text style={styles.saveButtonText}>Сохранить изменения</Text>
           </Pressable>
+
+          {cars.length > 1 && (
+            <Pressable
+              style={({ pressed }) => [styles.deleteButton, pressed && { opacity: 0.85 }]}
+              onPress={handleDeleteCar}
+            >
+              <Ionicons name="trash-outline" size={18} color={Colors.light.danger} />
+              <Text style={styles.deleteButtonText}>Удалить автомобиль</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -301,4 +335,16 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   saveButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 16, color: "#fff" },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.light.danger,
+  },
+  deleteButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.light.danger },
 });
