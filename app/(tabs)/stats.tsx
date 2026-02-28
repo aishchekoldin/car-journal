@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import Colors from "@/constants/colors";
 import { useData } from "@/lib/DataContext";
+import type { MaintenanceRecord, EventType } from "@/lib/types";
 import {
   getMonthlyTotals,
   getAvgPerMonth,
@@ -67,6 +69,26 @@ function BarChart({ data }: { data: { month: string; total: number }[] }) {
   );
 }
 
+interface CategoryInfo {
+  key: EventType;
+  label: string;
+  color: string;
+  bgColor: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+const CATEGORIES: CategoryInfo[] = [
+  { key: "planned", label: "Плановое", color: Colors.light.tint, bgColor: Colors.light.tintLight, icon: "build-outline" },
+  { key: "unplanned", label: "Внеплановое", color: Colors.light.accent, bgColor: Colors.light.accentLight, icon: "warning-outline" },
+  { key: "refueling", label: "Заправка", color: Colors.light.refueling, bgColor: Colors.light.refuelingBg, icon: "flame-outline" },
+];
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
 const PERIODS: { key: Period; label: string }[] = [
   { key: "3m", label: "3 мес." },
   { key: "6m", label: "6 мес." },
@@ -78,6 +100,7 @@ export default function StatsScreen() {
   const insets = useSafeAreaInsets();
   const { carRecords, car } = useData();
   const [period, setPeriod] = useState<Period>("6m");
+  const [expandedCategory, setExpandedCategory] = useState<EventType | null>(null);
 
   const costRecords = useMemo(() => {
     const nonFuture = carRecords.filter((r) => r.eventType !== "future");
@@ -212,23 +235,70 @@ export default function StatsScreen() {
                 <View style={[styles.splitSegment, { flex: refuelingPct, backgroundColor: Colors.light.refueling, borderTopRightRadius: 6, borderBottomRightRadius: 6 }]} />
               )}
             </View>
-            <View style={styles.splitLegend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.light.tint }]} />
-                <Text style={styles.legendLabel}>Плановое {plannedPct}%</Text>
-                <Text style={styles.legendValue}>{formatCost(plannedTotal, car.currency)}</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.light.accent }]} />
-                <Text style={styles.legendLabel}>Внеплановое {unplannedPct}%</Text>
-                <Text style={styles.legendValue}>{formatCost(unplannedTotal, car.currency)}</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.light.refueling }]} />
-                <Text style={styles.legendLabel}>Заправка {refuelingPct}%</Text>
-                <Text style={styles.legendValue}>{formatCost(refuelingTotal, car.currency)}</Text>
-              </View>
-            </View>
+
+            {CATEGORIES.map((cat) => {
+              const catTotal = cat.key === "planned" ? plannedTotal : cat.key === "unplanned" ? unplannedTotal : refuelingTotal;
+              const catPct = cat.key === "planned" ? plannedPct : cat.key === "unplanned" ? unplannedPct : refuelingPct;
+              const catRecords = costRecords
+                .filter((r) => r.eventType === cat.key)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+              const isExpanded = expandedCategory === cat.key;
+
+              return (
+                <View key={cat.key}>
+                  <Pressable
+                    style={({ pressed }) => [styles.categoryRow, pressed && { opacity: 0.85 }]}
+                    onPress={() => setExpandedCategory(isExpanded ? null : cat.key)}
+                  >
+                    <View style={[styles.categoryIcon, { backgroundColor: cat.bgColor }]}>
+                      <Ionicons name={cat.icon} size={16} color={cat.color} />
+                    </View>
+                    <View style={styles.categoryInfo}>
+                      <Text style={styles.categoryLabel}>{cat.label}</Text>
+                      <Text style={styles.categoryPct}>{catPct}%</Text>
+                    </View>
+                    <Text style={styles.categoryTotal}>{formatCost(catTotal, car.currency)}</Text>
+                    <Ionicons
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={Colors.light.tabIconDefault}
+                    />
+                  </Pressable>
+
+                  {isExpanded && (
+                    <View style={styles.categoryRecords}>
+                      {catRecords.length === 0 ? (
+                        <Text style={styles.categoryEmpty}>Нет записей в этой категории</Text>
+                      ) : (
+                        catRecords.map((rec) => (
+                          <Pressable
+                            key={rec.id}
+                            style={({ pressed }) => [styles.categoryRecordRow, pressed && { opacity: 0.85 }]}
+                            onPress={() => router.push({ pathname: "/record-detail", params: { id: rec.id } })}
+                          >
+                            <View style={styles.categoryRecordInfo}>
+                              <Text style={styles.categoryRecordTitle} numberOfLines={1}>{rec.title}</Text>
+                              <Text style={styles.categoryRecordDate}>{formatDate(rec.date)}</Text>
+                            </View>
+                            <Text style={[styles.categoryRecordCost, { color: cat.color }]}>
+                              {formatCost(rec.totalCost, rec.currency)}
+                            </Text>
+                          </Pressable>
+                        ))
+                      )}
+                      {catRecords.length > 0 && (
+                        <View style={styles.categorySubtotal}>
+                          <Text style={styles.categorySubtotalLabel}>Итого {cat.label.toLowerCase()}</Text>
+                          <Text style={[styles.categorySubtotalValue, { color: cat.color }]}>
+                            {formatCost(catTotal, car.currency)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
         </>
       )}
@@ -310,11 +380,55 @@ const styles = StyleSheet.create({
   kpiValue: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.light.text, marginTop: 4 },
   splitBar: { flexDirection: "row", height: 12, borderRadius: 6, overflow: "hidden", marginTop: 16, marginBottom: 16 },
   splitSegment: { height: 12 },
-  splitLegend: { gap: 10 },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 8 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.textSecondary, flex: 1 },
-  legendValue: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.light.text },
+  categoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+    gap: 10,
+  },
+  categoryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryInfo: { flex: 1 },
+  categoryLabel: { fontFamily: "Inter_500Medium", fontSize: 14, color: Colors.light.text },
+  categoryPct: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.textSecondary, marginTop: 1 },
+  categoryTotal: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.light.text, marginRight: 4 },
+  categoryRecords: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 10,
+    marginBottom: 8,
+    marginTop: 4,
+    padding: 10,
+  },
+  categoryEmpty: { fontFamily: "Inter_400Regular", fontSize: 13, color: Colors.light.textSecondary, textAlign: "center" as const, paddingVertical: 12 },
+  categoryRecordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  categoryRecordInfo: { flex: 1, marginRight: 8 },
+  categoryRecordTitle: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.light.text },
+  categoryRecordDate: { fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.light.textSecondary, marginTop: 1 },
+  categoryRecordCost: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  categorySubtotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 10,
+    paddingHorizontal: 6,
+    marginTop: 2,
+  },
+  categorySubtotalLabel: { fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.light.textSecondary },
+  categorySubtotalValue: { fontFamily: "Inter_700Bold", fontSize: 14 },
   emptyWrap: { alignItems: "center", paddingTop: 100 },
   emptyTitle: { fontFamily: "Inter_600SemiBold", fontSize: 18, color: Colors.light.text, marginTop: 16 },
   emptySubtitle: { fontFamily: "Inter_400Regular", fontSize: 14, color: Colors.light.textSecondary, marginTop: 4 },
