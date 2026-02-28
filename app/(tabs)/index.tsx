@@ -16,7 +16,6 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import Colors from "@/constants/colors";
 import { useData } from "@/lib/DataContext";
-import { getAvgPerMonth, getAvgPerYear } from "@/lib/stats";
 import { calcNextService, getServiceInterval } from "@/lib/service-intervals";
 
 function formatCost(value: number, currency: string): string {
@@ -50,8 +49,6 @@ export default function DashboardScreen() {
   const sorted = [...nonFutureRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const lastRecord = sorted.length > 0 ? sorted[0] : null;
   const lastMileage = lastRecord ? lastRecord.mileageKm : null;
-  const avgMonth = getAvgPerMonth(nonFutureRecords);
-  const avgYear = getAvgPerYear(nonFutureRecords);
   const nextService = calcNextService(carRecords, car);
   const { intervalKm, isCustom } = getServiceInterval(car);
 
@@ -208,24 +205,6 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
       )}
-
-      <Text style={styles.sectionTitle}>Обзор</Text>
-      <View style={styles.kpiRow}>
-        <View style={styles.kpiCard}>
-          <Ionicons name="calendar-outline" size={22} color={Colors.light.tint} />
-          <Text style={styles.kpiLabel}>Среднее / мес.</Text>
-          <Text style={styles.kpiValue}>
-            {nonFutureRecords.length > 0 ? formatCost(avgMonth, car.currency) : "Нет данных"}
-          </Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Ionicons name="trending-up-outline" size={22} color={Colors.light.accent} />
-          <Text style={styles.kpiLabel}>Среднее / год</Text>
-          <Text style={styles.kpiValue}>
-            {nonFutureRecords.length > 0 ? formatCost(avgYear, car.currency) : "Нет данных"}
-          </Text>
-        </View>
-      </View>
 
       <Modal visible={carPickerVisible} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setCarPickerVisible(false)}>
@@ -428,21 +407,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   addBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" },
-  kpiRow: { flexDirection: "row", gap: 12, marginBottom: 24 },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: Colors.light.surface,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    shadowColor: Colors.light.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  kpiLabel: { fontFamily: "Inter_400Regular", fontSize: 12, color: Colors.light.textSecondary, marginTop: 8 },
-  kpiValue: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.light.text, marginTop: 4, textAlign: "center" as const },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
